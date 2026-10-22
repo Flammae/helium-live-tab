@@ -842,7 +842,3 @@ mark {
 /* ───────── Layout: Recently closed on top, bookmarks below ───────── */
 .recent { margin-top: 0; }
 .stage:has(.panel.is-empty) .panel { margin-top: 0; }
-/* Center the Recently closed + bookmarks stack on the page (shows once the panel reaches max height). */
-@media (min-width: 721px) {
-  .stage { justify-content: center; padding-top: clamp(16px, 4vh, 36px); }
-}
