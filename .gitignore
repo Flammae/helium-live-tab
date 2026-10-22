@@ -2,3 +2,9 @@
 *.pre-glass
 .DS_Store
 slow-*.webm
+light.opera.webm
+*.webm
+*.pre-*
+*.pre-glass3
+*.pre-neutral
+*.pre-liquid

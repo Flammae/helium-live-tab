@@ -781,25 +781,60 @@ mark {
   .root-tab[aria-selected="true"] { background: hsl(0 0% 100% / .6); box-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 hsl(286 30% 40% / .08), 0 2px 8px -4px hsl(286 40% 30% / .25); }
 }
 
-/* ───────── Film grain (hides banding in the wallpaper) ───────── */
-:root { --grain-opacity: .08; }
-@media (prefers-color-scheme: light) { :root { --grain-opacity: .06; } }
-.scrim::after {
-  content: "";
-  position: absolute;
-  inset: -64px;
-  background: url("grain.png") repeat;
-  background-size: 128px 128px;
-  opacity: var(--grain-opacity);
-  mix-blend-mode: normal;
-  pointer-events: none;
-  animation: grain 0.5s steps(1) infinite;
+
+/* ───────── Liquid glass (v3: refracting edges, Chromium SVG backdrop filter) ───────── */
+.panel,
+.recent {
+  -webkit-backdrop-filter: blur(14px) saturate(220%) brightness(1.08) url(#liquid);
+  backdrop-filter: blur(14px) saturate(220%) brightness(1.08) url(#liquid);
 }
-@keyframes grain {
-  0%   { transform: translate(0, 0); }
-  20%  { transform: translate(-23px, 17px); }
-  40%  { transform: translate(31px, -9px); }
-  60%  { transform: translate(-11px, -29px); }
-  80%  { transform: translate(19px, 27px); }
+
+/* ───────── Neutral glass (no pink tint) ───────── */
+:root {
+  --glass: hsl(0 0% 6% / .38);
+  --glass-chip: hsl(0 0% 8% / .46);
+  --tile: hsl(0 0% 100% / .045);
+  --tile-hover: hsl(0 0% 100% / .10);
+  --tile-press: hsl(0 0% 100% / .14);
+  --stroke: hsl(0 0% 100% / .09);
+  --stroke-2: hsl(0 0% 100% / .16);
+  --edge-a: hsl(0 0% 100% / .42);
+  --edge-b: hsl(0 0% 100% / .14);
+  --edge-c: hsl(0 0% 100% / .28);
+  --ink: hsl(0 0% 97%);
+  --ink-2: hsl(0 0% 88% / .74);
+  --ink-3: hsl(0 0% 82% / .48);
+  --shadow: 0 40px 100px -30px hsl(0 0% 0% / .8), 0 12px 32px -12px hsl(0 0% 0% / .6);
+  --lg-tint: hsl(0 0% 12% / .16);
+  --lg-rim-bot: hsl(0 0% 100% / .14);
+  --lg-inner: hsl(0 0% 100% / .08);
 }
-@media (prefers-reduced-motion: reduce) { .scrim::after { animation: none; } }
+@media (prefers-color-scheme: light) {
+  :root {
+    --glass: hsl(0 0% 100% / .42);
+    --glass-chip: hsl(0 0% 100% / .48);
+    --tile: hsl(0 0% 100% / .34);
+    --tile-hover: hsl(0 0% 100% / .66);
+    --tile-press: hsl(0 0% 100% / .82);
+    --stroke: hsl(0 0% 20% / .09);
+    --stroke-2: hsl(0 0% 20% / .16);
+    --edge-b: hsl(0 0% 100% / .5);
+    --edge-c: hsl(0 0% 100% / .8);
+    --ink: hsl(0 0% 10%);
+    --ink-2: hsl(0 0% 18% / .72);
+    --ink-3: hsl(0 0% 22% / .5);
+    --shadow: 0 40px 90px -36px hsl(0 0% 20% / .4), 0 10px 30px -14px hsl(0 0% 20% / .22);
+    --lg-tint: hsl(0 0% 100% / .2);
+  }
+  .root-tab[aria-selected="true"] { box-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 hsl(0 0% 30% / .08), 0 2px 8px -4px hsl(0 0% 20% / .25); }
+}
+.panel,
+.recent {
+  -webkit-backdrop-filter: blur(14px) saturate(120%) brightness(1.06) url(#liquid);
+  backdrop-filter: blur(14px) saturate(120%) brightness(1.06) url(#liquid);
+}
+.panel::after,
+.recent::after {
+  background: radial-gradient(120% 60% at 20% -10%, var(--lg-sheen), transparent 55%);
+}
+.fx-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
