@@ -8,3 +8,7 @@ light.opera.webm
 *.pre-glass3
 *.pre-neutral
 *.pre-liquid
+renderer/render/build/
+renderer/out/
+renderer/preview/
+renderer/timing/
