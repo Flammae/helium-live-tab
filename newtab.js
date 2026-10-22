@@ -540,6 +540,43 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+/* ───────────────────────── Filter shortcut (extension command) ───────────────────────── */
+
+function focusFilterSoon() {
+  const until = performance.now() + 3000;
+  const tryFocus = () => {
+    if (!ui.filter.hidden && ui.panel.getAttribute('aria-busy') !== 'true') {
+      ui.q.focus();
+      if (document.activeElement === ui.q) return;
+    }
+    if (performance.now() < until) requestAnimationFrame(tryFocus);
+  };
+  tryFocus();
+}
+
+chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
+  if (msg?.type !== 'focus-filter') return;
+  focusFilterSoon();
+  reply({ focused: document.hasFocus() });
+});
+
+// filter.html (opened by the filter shortcut) shows its own address in the address bar. Once you leave
+// that tab, turn it back into the real new tab page so the address bar is blank next time.
+if (location.pathname.endsWith('/filter.html')) {
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState !== 'hidden') return;
+    const me = await chrome.tabs.getCurrent().catch(() => null);
+    // Only when you switched to another tab, never while this tab is navigating somewhere you chose.
+    if (me?.id == null || me.active || me.pendingUrl) return;
+    chrome.tabs.update(me.id, { url: 'chrome://newtab/' }).catch(() => {});
+  });
+}
+
+if (location.hash === '#filter' || new URLSearchParams(location.search).has('filter')) {
+  history.replaceState(null, '', location.pathname);
+  focusFilterSoon();
+}
+
 /* ───────────────────────── Scroll edge fades ───────────────────────── */
 
 function updateScrollShadows() {
@@ -553,7 +590,7 @@ addEventListener('resize', debounce(updateScrollShadows, 100));
 /* ───────────────────────── Recently closed ───────────────────────── */
 
 const recent = { el: $('#recent'), list: $('#recentList') };
-const OWN_NTP = chrome.runtime.getURL('newtab.html');
+const OWN_NTP = chrome.runtime.getURL(''); // newtab.html and filter.html
 const SKIP_URL = (u) => !u || u.startsWith(OWN_NTP) || /^chrome:\/\/(newtab|new-tab-page)/.test(u) || u.startsWith('chrome-search://');
 const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
 

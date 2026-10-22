@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Live Tab — Metamorphic",
   "short_name": "Live Tab",
-  "version": "2.1.2",
+  "version": "2.2.0",
   "description": "A live-wallpaper new tab for your bookmarks and recently closed tabs. Fully local: loads nothing from the network.",
   "minimum_chrome_version": "120",
   "chrome_url_overrides": {
@@ -99,6 +99,9 @@
         "mac": "Alt+0",
         "default": "Alt+0"
       }
+    },
+    "filter": {
+      "description": "Filter bookmarks (works even from the address bar)"
     }
   }
 }

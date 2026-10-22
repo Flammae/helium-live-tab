@@ -7,6 +7,24 @@ async function slot(n) {
 }
 
 chrome.commands.onCommand.addListener(async (command, tab) => {
+  if (command === 'filter') {
+    const t = tab || (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
+    if (!t) return;
+    const onNewTab = t.url === 'chrome://newtab/' || t.url?.startsWith(chrome.runtime.getURL(''));
+    // filter.html is the same UI under a different URL. The browser treats the new tab page's own URL
+    // specially and keeps the address bar focused there, so we load this copy instead.
+    const url = chrome.runtime.getURL('filter.html') + '?filter=' + Date.now();
+    if (onNewTab) {
+      // Swap in a fresh tab in the same spot; a newly opened tab with a regular page gets page focus.
+      await chrome.tabs.create({ url, index: t.index, windowId: t.windowId, active: true });
+      await chrome.tabs.remove(t.id);
+    } else {
+      await chrome.tabs.update(t.id, { url });
+    }
+  }
+});
+
+chrome.commands.onCommand.addListener(async (command, tab) => {
   if (command === 'blank') {
     const t = tab || (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
     if (t) await chrome.tabs.update(t.id, { url: 'chrome://newtab/' });
