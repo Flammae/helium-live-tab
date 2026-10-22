@@ -838,3 +838,11 @@ mark {
   background: radial-gradient(120% 60% at 20% -10%, var(--lg-sheen), transparent 55%);
 }
 .fx-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+/* ───────── Layout: Recently closed on top, bookmarks below ───────── */
+.recent { margin-top: 0; }
+.stage:has(.panel.is-empty) .panel { margin-top: 0; }
+/* Center the Recently closed + bookmarks stack on the page (shows once the panel reaches max height). */
+@media (min-width: 721px) {
+  .stage { justify-content: center; padding-top: clamp(16px, 4vh, 36px); }
+}

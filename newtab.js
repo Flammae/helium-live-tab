@@ -66,8 +66,8 @@ const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');
 const STILL_AT = 7; // seconds — a well-composed frame used as the reduced-motion poster
 
 function syncVideoSource() {
-  // Temporarily the recreated light video is used for both themes.
-  const name = 'light'; // was: darkMQ.matches ? 'dark' : 'light'
+  // Recreated Metamorphic videos: dark.webm in dark mode, light.webm in light mode.
+  const name = darkMQ.matches ? 'dark' : 'light';
   if (video.dataset.name === name) return;
   video.dataset.name = name;
   video.classList.remove('ready');

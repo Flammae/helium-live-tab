@@ -19,6 +19,13 @@
   <div class="scrim" aria-hidden="true"></div>
 
   <main class="stage">
+    <section class="recent" id="recent" aria-label="Recently closed" hidden>
+      <h2 class="recent-title">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10a6 6 0 1 0 1.8-4.3"/><path d="M4 3.5v3h3"/></svg>
+        Recently closed
+      </h2>
+      <div class="recent-list" id="recentList"></div>
+    </section>
     <section class="panel" id="panel" aria-label="Bookmarks" aria-busy="true">
       <header class="panel-head">
         <div class="roots" id="roots" role="tablist" aria-label="Bookmark locations"></div>
@@ -43,13 +50,6 @@
       </footer>
     </section>
 
-    <section class="recent" id="recent" aria-label="Recently closed" hidden>
-      <h2 class="recent-title">
-        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10a6 6 0 1 0 1.8-4.3"/><path d="M4 3.5v3h3"/></svg>
-        Recently closed
-      </h2>
-      <div class="recent-list" id="recentList"></div>
-    </section>
   </main>
 
   <script src="newtab.js"></script>
