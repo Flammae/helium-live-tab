@@ -2,11 +2,18 @@
   "manifest_version": 3,
   "name": "Live Tab — Metamorphic",
   "short_name": "Live Tab",
-  "version": "2.0.0",
+  "version": "2.1.2",
   "description": "A live-wallpaper new tab for your bookmarks and recently closed tabs. Fully local: loads nothing from the network.",
   "minimum_chrome_version": "120",
-  "chrome_url_overrides": { "newtab": "newtab.html" },
-  "permissions": ["bookmarks", "sessions", "tabs", "favicon"],
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "permissions": [
+    "bookmarks",
+    "sessions",
+    "tabs",
+    "favicon"
+  ],
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
@@ -15,5 +22,83 @@
   },
   "content_security_policy": {
     "extension_pages": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; media-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "open-1": {
+      "description": "Open bookmark 1 in this tab",
+      "suggested_key": {
+        "mac": "Alt+1",
+        "default": "Alt+1"
+      }
+    },
+    "new-1": {
+      "description": "Open bookmark 1 in a new tab",
+      "suggested_key": {
+        "mac": "Command+Shift+1",
+        "default": "Ctrl+Shift+1"
+      }
+    },
+    "open-2": {
+      "description": "Open bookmark 2 in this tab",
+      "suggested_key": {
+        "mac": "Alt+2",
+        "default": "Alt+2"
+      }
+    },
+    "new-2": {
+      "description": "Open bookmark 2 in a new tab"
+    },
+    "open-3": {
+      "description": "Open bookmark 3 in this tab"
+    },
+    "new-3": {
+      "description": "Open bookmark 3 in a new tab"
+    },
+    "open-4": {
+      "description": "Open bookmark 4 in this tab"
+    },
+    "new-4": {
+      "description": "Open bookmark 4 in a new tab"
+    },
+    "open-5": {
+      "description": "Open bookmark 5 in this tab"
+    },
+    "new-5": {
+      "description": "Open bookmark 5 in a new tab"
+    },
+    "open-6": {
+      "description": "Open bookmark 6 in this tab"
+    },
+    "new-6": {
+      "description": "Open bookmark 6 in a new tab"
+    },
+    "open-7": {
+      "description": "Open bookmark 7 in this tab"
+    },
+    "new-7": {
+      "description": "Open bookmark 7 in a new tab"
+    },
+    "open-8": {
+      "description": "Open bookmark 8 in this tab"
+    },
+    "new-8": {
+      "description": "Open bookmark 8 in a new tab"
+    },
+    "open-9": {
+      "description": "Open bookmark 9 in this tab"
+    },
+    "new-9": {
+      "description": "Open bookmark 9 in a new tab"
+    },
+    "blank": {
+      "description": "Replace this tab with the new tab page",
+      "suggested_key": {
+        "mac": "Alt+0",
+        "default": "Alt+0"
+      }
+    }
   }
 }
