@@ -96,6 +96,7 @@ syncVideoSource();
 
 const ui = {
   panel: $('#panel'),
+  scroll: $('#panelScroll'),
   roots: $('#roots'),
   crumbs: $('#crumbs'),
   body: $('#body'),
@@ -192,7 +193,7 @@ function goUp() {
 }
 
 function render({ animate = null } = {}) {
-  ui.panel.removeAttribute('aria-busy');
+  if (!boot.pending) ui.panel.removeAttribute('aria-busy');
   const roots = visibleRoots();
   const empty = roots.length === 0;
   ui.panel.classList.toggle('is-empty', empty);
@@ -215,7 +216,7 @@ function render({ animate = null } = {}) {
   ui.body.replaceChildren(content);
   if (animate) {
     content.classList.add(animate);
-    ui.body.scrollTop = 0;
+    if (ui.scroll) ui.scroll.scrollTop = 0; else ui.body.scrollTop = 0;
   }
   updateScrollShadows();
 }
@@ -540,57 +541,22 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-/* ───────────────────────── Filter shortcut (extension command) ───────────────────────── */
-
-function focusFilterSoon() {
-  const until = performance.now() + 3000;
-  const tryFocus = () => {
-    if (!ui.filter.hidden && ui.panel.getAttribute('aria-busy') !== 'true') {
-      ui.q.focus();
-      if (document.activeElement === ui.q) return;
-    }
-    if (performance.now() < until) requestAnimationFrame(tryFocus);
-  };
-  tryFocus();
-}
-
-chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
-  if (msg?.type !== 'focus-filter') return;
-  focusFilterSoon();
-  reply({ focused: document.hasFocus() });
-});
-
-// filter.html (opened by the filter shortcut) shows its own address in the address bar. Once you leave
-// that tab, turn it back into the real new tab page so the address bar is blank next time.
-if (location.pathname.endsWith('/filter.html')) {
-  document.addEventListener('visibilitychange', async () => {
-    if (document.visibilityState !== 'hidden') return;
-    const me = await chrome.tabs.getCurrent().catch(() => null);
-    // Only when you switched to another tab, never while this tab is navigating somewhere you chose.
-    if (me?.id == null || me.active || me.pendingUrl) return;
-    chrome.tabs.update(me.id, { url: 'chrome://newtab/' }).catch(() => {});
-  });
-}
-
-if (location.hash === '#filter' || new URLSearchParams(location.search).has('filter')) {
-  history.replaceState(null, '', location.pathname);
-  focusFilterSoon();
-}
-
 /* ───────────────────────── Scroll edge fades ───────────────────────── */
 
 function updateScrollShadows() {
-  const b = ui.body;
+  const b = ui.scroll || ui.body;
   ui.panel.classList.toggle('fade-top', b.scrollTop > 4);
   ui.panel.classList.toggle('fade-bottom', b.scrollTop + b.clientHeight < b.scrollHeight - 4);
 }
+ui.scroll?.addEventListener('scroll', updateScrollShadows, { passive: true });
 ui.body.addEventListener('scroll', updateScrollShadows, { passive: true });
 addEventListener('resize', debounce(updateScrollShadows, 100));
 
-/* ───────────────────────── Recently closed ───────────────────────── */
+/* ───────────────────────── Chip strips (open tabs + recently closed) ───────────────────────── */
 
 const recent = { el: $('#recent'), list: $('#recentList') };
-const OWN_NTP = chrome.runtime.getURL(''); // newtab.html and filter.html
+const openTabs = { el: $('#openTabs'), list: $('#openTabsList') };
+const OWN_NTP = chrome.runtime.getURL(''); // newtab.html
 const SKIP_URL = (u) => !u || u.startsWith(OWN_NTP) || /^chrome:\/\/(newtab|new-tab-page)/.test(u) || u.startsWith('chrome-search://');
 const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
 
@@ -606,8 +572,169 @@ function timeAgo(sec) {
 async function restore(sessionId, isTab) {
   const current = await chrome.tabs.getCurrent().catch(() => null);
   await chrome.sessions.restore(sessionId);
-  // A restored tab opens next to us — close this now-redundant new tab so it feels like "go back".
   if (isTab && current?.id != null) chrome.tabs.remove(current.id).catch(() => {});
+}
+
+async function goToTab(tabId) {
+  const current = await chrome.tabs.getCurrent().catch(() => null);
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  if (!tab) return;
+  await chrome.windows.update(tab.windowId, { focused: true }).catch(() => {});
+  await chrome.tabs.update(tabId, { active: true });
+  if (current?.id != null && current.id !== tabId) chrome.tabs.remove(current.id).catch(() => {});
+}
+
+function makeOpenTabChip(t) {
+  if (t.id == null) return null;
+  const url = t.url || t.pendingUrl || '';
+  const isNtp = !url || SKIP_URL(url);
+  const title = t.title || (isNtp ? 'New Tab' : hostOf(url)) || 'Tab';
+  const tip = isNtp
+    ? `${title}\nClick to switch · × to close`
+    : `${title}\n${url}\nClick to switch · × to close`;
+  return h('div', {
+    class: 'chip chip-open',
+    role: 'listitem',
+    title: tip,
+  },
+  h('button', {
+    class: 'chip-main',
+    type: 'button',
+    onclick: () => goToTab(t.id),
+  }, favicon(url || 'chrome://newtab/', 'chip-fav'), h('span', { class: 'chip-text' }, title)),
+  h('button', {
+    class: 'chip-close',
+    type: 'button',
+    title: 'Close tab',
+    'aria-label': `Close ${title}`,
+    onclick: (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      chrome.tabs.remove(t.id).catch(() => {});
+    },
+  }, '×'));
+}
+
+function makeRecentChip(s) {
+  if (s.tab) {
+    const t = s.tab;
+    if (SKIP_URL(t.url) || !t.sessionId) return null;
+    const title = t.title || hostOf(t.url);
+    return h('button', {
+      class: 'chip',
+      type: 'button',
+      role: 'listitem',
+      title: `${title}\n${t.url}\nClosed ${timeAgo(s.lastModified)} — click to restore`,
+      onclick: () => restore(t.sessionId, true),
+    }, favicon(t.url, 'chip-fav'), h('span', { class: 'chip-text' }, title));
+  }
+  if (s.window) {
+    const tabs = (s.window.tabs || []).filter((t) => !SKIP_URL(t.url));
+    if (!tabs.length || !s.window.sessionId) return null;
+    return h('button', {
+      class: 'chip chip-window',
+      type: 'button',
+      role: 'listitem',
+      title: `Window with ${tabs.length} tabs\n${tabs.slice(0, 6).map((t) => '• ' + (t.title || hostOf(t.url))).join('\n')}\nClosed ${timeAgo(s.lastModified)} — click to restore`,
+      onclick: () => restore(s.window.sessionId, false),
+    },
+    h('span', { class: 'chip-stack' }, tabs.slice(0, 3).map((t) => favicon(t.url, 'chip-fav'))),
+    h('span', { class: 'chip-text' }, `Window · ${tabs.length} tabs`));
+  }
+  return null;
+}
+
+function cloneChip(orig) {
+  const clone = orig.cloneNode(true);
+  clone.addEventListener('click', (e) => {
+    e.preventDefault();
+    orig.click();
+  });
+  return clone;
+}
+
+function appendChipSet(list) {
+  const seeds = list._seedRows;
+  if (!seeds?.length) return;
+  const rows = [...list.querySelectorAll(':scope > .recent-row')];
+  seeds.forEach((seedChips, i) => {
+    const row = rows[i];
+    if (!row) return;
+    seedChips.forEach((orig) => row.appendChild(cloneChip(orig)));
+  });
+}
+
+function wireChipStripScroll(list) {
+  if (list._scrollWired) return;
+  list._scrollWired = true;
+  list.addEventListener('wheel', (e) => {
+    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+    if (list.scrollWidth <= list.clientWidth + 1) return;
+    e.preventDefault();
+    list.scrollLeft += e.deltaY;
+  }, { passive: false });
+  list.addEventListener('scroll', () => {
+    const room = list.scrollWidth - list.clientWidth - list.scrollLeft;
+    if (room < 240) appendChipSet(list);
+  }, { passive: true });
+}
+
+/** Pack chips into two rows by shortest width (horizontal masonry). */
+function layoutChipMasonry(list, chips) {
+  const row0 = h('div', { class: 'recent-row' });
+  const row1 = h('div', { class: 'recent-row' });
+  list.replaceChildren(row0, row1);
+  list.scrollLeft = 0;
+
+  const probe = h('div', { class: 'recent-row chip-measure-probe' });
+  document.body.appendChild(probe);
+  const widths = chips.map((chip) => {
+    probe.replaceChildren(chip.cloneNode(true));
+    return probe.getBoundingClientRect().width;
+  });
+  probe.remove();
+
+  let w0 = 0, w1 = 0;
+  const gap = 6;
+  chips.forEach((chip, i) => {
+    const w = widths[i];
+    if (w0 <= w1) {
+      row0.appendChild(chip);
+      w0 += w + (row0.childElementCount > 1 ? gap : 0);
+    } else {
+      row1.appendChild(chip);
+      w1 += w + (row1.childElementCount > 1 ? gap : 0);
+    }
+  });
+  if (!row1.childElementCount) row1.remove();
+
+  list._seedRows = [...list.querySelectorAll(':scope > .recent-row')].map(
+    (row) => [...row.children],
+  );
+
+  requestAnimationFrame(() => {
+    if (list.scrollWidth <= list.clientWidth + 8) return;
+    appendChipSet(list);
+  });
+
+  wireChipStripScroll(list);
+}
+
+
+async function loadOpenTabs() {
+  const current = await chrome.tabs.getCurrent().catch(() => null);
+  let tabs = [];
+  try {
+    tabs = await chrome.tabs.query({ currentWindow: true });
+  } catch { /* tabs unavailable */ }
+  const chips = [];
+  for (const t of tabs) {
+    if (current?.id != null && t.id === current.id) continue;
+    const chip = makeOpenTabChip(t);
+    if (chip) chips.push(chip);
+  }
+  openTabs.el.hidden = chips.length === 0;
+  openTabs.list.replaceChildren(...chips);
 }
 
 async function loadRecent() {
@@ -617,43 +744,48 @@ async function loadRecent() {
   } catch { /* sessions unavailable */ }
   const chips = [];
   for (const s of sessions) {
-    if (chips.length >= 8) break;
-    if (s.tab) {
-      const t = s.tab;
-      if (SKIP_URL(t.url) || !t.sessionId) continue;
-      const title = t.title || hostOf(t.url);
-      chips.push(h('button', {
-        class: 'chip',
-        type: 'button',
-        title: `${title}\n${t.url}\nClosed ${timeAgo(s.lastModified)} — click to restore`,
-        onclick: () => restore(t.sessionId, true),
-      }, favicon(t.url, 'chip-fav'), h('span', { class: 'chip-text' }, title)));
-    } else if (s.window) {
-      const tabs = (s.window.tabs || []).filter((t) => !SKIP_URL(t.url));
-      if (!tabs.length || !s.window.sessionId) continue;
-      chips.push(h('button', {
-        class: 'chip chip-window',
-        type: 'button',
-        title: `Window with ${tabs.length} tabs\n${tabs.slice(0, 6).map((t) => '• ' + (t.title || hostOf(t.url))).join('\n')}\nClosed ${timeAgo(s.lastModified)} — click to restore`,
-        onclick: () => restore(s.window.sessionId, false),
-      },
-      h('span', { class: 'chip-stack' }, tabs.slice(0, 3).map((t) => favicon(t.url, 'chip-fav'))),
-      h('span', { class: 'chip-text' }, `Window · ${tabs.length} tabs`)));
-    }
+    const chip = makeRecentChip(s);
+    if (chip) chips.push(chip);
   }
-  recent.list.replaceChildren(...chips);
   recent.el.hidden = chips.length === 0;
+  if (!chips.length) {
+    recent.list.replaceChildren();
+    return;
+  }
+  layoutChipMasonry(recent.list, chips);
 }
 
+const reloadOpenTabs = debounce(loadOpenTabs, 120);
 chrome.sessions?.onChanged?.addListener(debounce(loadRecent, 120));
+chrome.tabs?.onCreated?.addListener(reloadOpenTabs);
+chrome.tabs?.onRemoved?.addListener(reloadOpenTabs);
+chrome.tabs?.onUpdated?.addListener(reloadOpenTabs);
+chrome.tabs?.onMoved?.addListener(reloadOpenTabs);
+chrome.tabs?.onAttached?.addListener(reloadOpenTabs);
+chrome.tabs?.onDetached?.addListener(reloadOpenTabs);
 
 /* ───────────────────────── Boot ───────────────────────── */
 
+const boot = { pending: true };
+
 document.documentElement.classList.toggle('is-mac', IS_MAC);
-loadBookmarks().catch((err) => {
+
+async function start() {
+  // Hold aria-busy until bookmarks + open tabs + recently closed are all in the DOM,
+  // so the panel doesn't pop in and then jump as sections appear.
+  const bookmarks = loadBookmarks().catch((err) => {
+    ui.body.replaceChildren(h('div', { class: 'folder-empty' },
+      h('p', { class: 'folder-empty-title' }, 'Bookmarks are unavailable'),
+      h('p', { class: 'folder-empty-sub' }, String(err?.message || err))));
+  });
+  await Promise.all([bookmarks, loadOpenTabs(), loadRecent()]);
+  boot.pending = false;
   ui.panel.removeAttribute('aria-busy');
-  ui.body.replaceChildren(h('div', { class: 'folder-empty' },
-    h('p', { class: 'folder-empty-title' }, 'Bookmarks are unavailable'),
-    h('p', { class: 'folder-empty-sub' }, String(err?.message || err))));
-});
-loadRecent();
+  ui.panel.classList.remove('is-booting');
+  // Force a reflow, then play rise once content is stable.
+  void ui.panel.offsetWidth;
+  ui.panel.classList.add('is-ready');
+  updateScrollShadows();
+}
+
+start();

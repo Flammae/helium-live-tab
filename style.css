@@ -143,13 +143,14 @@ kbd {
   position: relative;
   z-index: 1;
   height: 100%;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-  padding: clamp(20px, 13vh, 150px) 24px clamp(16px, 4vh, 36px);
+  gap: 6px;
+  /* Tight top so Recently closed sits near the address bar */
+  padding: 8px 24px 12px;
 }
-.stage:has(.panel.is-empty) .panel { margin-top: auto; }
 
 /* ───────── Glass panel ───────── */
 
@@ -178,17 +179,33 @@ kbd {
   z-index: 2;
 }
 
+.bookmarks-slot {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center; /* center panel in leftover space under Recently closed */
+}
+
 .panel {
   width: min(1080px, 100%);
-  max-height: min(760px, 100%);
+  /* Grow/shrink with the slot (window height); cap at the old max. Content filter does not change this. */
+  flex: 1 1 auto;
+  max-height: 760px;
   min-height: 0;
   display: flex;
   flex-direction: column;
   border-radius: var(--radius-xl);
-  animation: rise .7s var(--ease) both;
 }
 
-.panel[aria-busy="true"] { visibility: hidden; }
+.panel[aria-busy="true"],
+.panel.is-booting { visibility: hidden; }
+
+.panel.is-ready {
+  animation: rise .7s var(--ease) both;
+}
 
 @keyframes rise {
   from { opacity: 0; transform: translateY(14px) scale(.99); }
@@ -547,7 +564,7 @@ mark {
 /* ───────── Empty state (no bookmarks at all) ───────── */
 
 .panel.is-empty {
-  width: min(520px, 100%);
+  width: min(720px, 100%);
 }
 .panel.is-empty .panel-head { justify-content: center; padding-bottom: 0; }
 .panel.is-empty .roots { justify-content: center; }
@@ -620,53 +637,46 @@ mark {
   }
 }
 
-/* ───────── Recently closed ───────── */
+/* ───────── Recently closed (2-row horizontal masonry) ───────── */
 
 .recent {
-  width: fit-content;
+  width: min(1080px, 100%);
   max-width: min(1080px, 100%);
-  margin-top: auto;
   flex: none;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 8px 8px 16px;
+  display: block;
+  padding: 8px;
   border-radius: 18px;
   background: var(--glass-chip);
   animation: rise .7s .08s var(--ease) both;
 }
 .recent[hidden] { display: none; }
-.recent-title {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 0;
-  color: var(--ink-3);
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-}
-.recent-title svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .recent-list {
-  flex: 1;
-  min-width: 0;
   display: flex;
+  flex-direction: column;
   gap: 6px;
   overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
   scrollbar-width: none;
   -webkit-mask: linear-gradient(to right, #000 calc(100% - 28px), transparent);
   mask: linear-gradient(to right, #000 calc(100% - 28px), transparent);
-  padding: 2px 28px 2px 2px;
+  padding: 2px 20px 2px 4px;
 }
 .recent-list::-webkit-scrollbar { display: none; }
+.recent-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  width: max-content;
+  min-height: 32px;
+}
 
 .chip {
   flex: none;
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  width: max-content;
   max-width: 220px;
   height: 32px;
   padding: 0 12px 0 8px;
@@ -681,15 +691,15 @@ mark {
 }
 .chip:hover { background: var(--tile-hover); color: var(--ink); border-color: var(--stroke-2); }
 .chip-fav { flex: none; width: 20px; height: 20px; padding: 2px; border-radius: 6px; background: var(--fav-bg); }
-.chip-text { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.chip-text { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 160px; }
 .chip-stack { display: flex; }
 .chip-stack .chip-fav + .chip-fav { margin-left: -7px; box-shadow: 0 0 0 1.5px var(--bg); }
 
 /* ───────── Responsive ───────── */
 
 @media (max-width: 720px) {
-  .stage { padding: 14px 12px; gap: 10px; justify-content: flex-start; }
-  .panel { max-height: calc(100% - 64px); border-radius: 22px; }
+  .stage { padding: 10px 12px 12px; gap: 10px; }
+  .panel { border-radius: 22px; }
   .panel-head { flex-wrap: wrap; padding: 12px 10px 8px; }
   .roots { order: 2; flex-basis: 100%; }
   .head-actions { order: 1; width: 100%; }
@@ -697,7 +707,7 @@ mark {
   .panel-body { padding: 4px 10px 12px; }
   .grid.folders, .grid.links { grid-template-columns: 1fr; }
   .panel-foot { display: none; }
-  .recent { flex-direction: column; align-items: stretch; padding: 10px; gap: 8px; }
+  .recent { padding: 8px; width: 100%; max-width: 100%; }
 }
 
 @media (max-height: 560px) {
@@ -839,6 +849,162 @@ mark {
 }
 .fx-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 
-/* ───────── Layout: Recently closed on top, bookmarks below ───────── */
-.recent { margin-top: 0; }
-.stage:has(.panel.is-empty) .panel { margin-top: 0; }
+
+/* ───────── Chrome-less + one shared scroll ───────── */
+.chrome-stub { display: none !important; }
+.panel-head,
+.crumbs,
+.panel-foot,
+.filter,
+.icon-btn#manage,
+.roots { display: none !important; }
+
+.stage {
+  gap: 0;
+  padding: 8px 24px 12px;
+}
+
+.bookmarks-slot {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.recent,
+.panel {
+  background: transparent !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  animation: none !important;
+}
+.recent::before,
+.recent::after,
+.panel::before,
+.panel::after { display: none !important; content: none !important; }
+
+.panel {
+  width: min(1080px, 100%);
+  height: min(720px, calc(100vh - 48px));
+  max-height: min(720px, calc(100vh - 48px)) !important;
+  flex: 0 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  padding: 0 0 24px;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 calc(100% - 48px), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 calc(100% - 48px), transparent 100%);
+}
+.panel-scroll::-webkit-scrollbar { display: none; }
+
+.panel-body {
+  flex: none !important;
+  overflow: visible !important;
+  min-height: 0;
+  padding: 0 !important;
+  -webkit-mask: none !important;
+  mask: none !important;
+}
+
+.panel.fade-top .panel-scroll { /* keep class toggle working via JS if desired */ }
+.panel.fade-top .panel-body,
+.panel.fade-bottom .panel-body {
+  --fade-top: 0px;
+  --fade-bottom: 0px;
+}
+
+.chip-section.group {
+  width: 100%;
+  margin: 0 0 18px;
+  flex: none;
+}
+.chip-section[hidden] { display: none !important; }
+.recent-list {
+  -webkit-mask: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  mask: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  padding: 0 20px 0 0;
+}
+
+.open-tabs-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  align-content: flex-start;
+  gap: 6px;
+  width: 100%;
+}
+.open-tabs-list .chip {
+  flex: 0 0 auto;
+  width: max-content;
+  /* keep global chip max-width so long titles still ellipsis */
+}
+.open-tabs-list .chip-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  padding: 0;
+  max-width: 100%;
+  cursor: default;
+}
+.open-tabs-list .chip-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 32px;
+  padding: 0 4px 0 8px;
+  border: 0;
+  border-radius: 10px 0 0 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 520;
+  cursor: pointer;
+}
+.open-tabs-list .chip-main:hover { color: var(--ink); }
+.open-tabs-list .chip-close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0 10px 10px 0;
+  background: transparent;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.open-tabs-list .chip-close:hover {
+  color: var(--ink);
+  background: var(--tile-hover);
+}
+
+
+/* Off-DOM width probe for masonry packing (no inline styles — CSP style-src 'self') */
+.chip-measure-probe {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  left: -9999px;
+  top: 0;
+}

@@ -19,37 +19,30 @@
   <div class="scrim" aria-hidden="true"></div>
 
   <main class="stage">
-    <section class="recent" id="recent" aria-label="Recently closed" hidden>
-      <h2 class="recent-title">
-        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10a6 6 0 1 0 1.8-4.3"/><path d="M4 3.5v3h3"/></svg>
-        Recently closed
-      </h2>
-      <div class="recent-list" id="recentList"></div>
-    </section>
-    <section class="panel" id="panel" aria-label="Bookmarks" aria-busy="true">
-      <header class="panel-head">
-        <div class="roots" id="roots" role="tablist" aria-label="Bookmark locations"></div>
-        <div class="head-actions">
-          <label class="filter" id="filter" title="Filter bookmarks (/)">
-            <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.25"/><path d="m12.5 12.5 4 4"/></svg>
-            <input id="q" type="search" placeholder="Filter" autocomplete="off" spellcheck="false" aria-label="Filter bookmarks">
-            <kbd>/</kbd>
+    <div class="bookmarks-slot">
+      <section class="panel is-booting" id="panel" aria-label="Bookmarks" aria-busy="true">
+        <div class="chrome-stub" hidden>
+          <div class="roots" id="roots" role="tablist" aria-label="Bookmark locations"></div>
+          <label class="filter" id="filter">
+            <input id="q" type="search" autocomplete="off" spellcheck="false" aria-label="Filter bookmarks">
           </label>
-          <button class="icon-btn" id="manage" type="button" title="Open bookmark manager" aria-label="Open bookmark manager">
-            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 3.5h8a1 1 0 0 1 1 1v12l-5-3.25-5 3.25v-12a1 1 0 0 1 1-1Z"/></svg>
-          </button>
+          <button class="icon-btn" id="manage" type="button" aria-label="Open bookmark manager"></button>
+          <nav class="crumbs" id="crumbs" aria-label="Folder path"></nav>
+          <footer class="panel-foot" id="foot"></footer>
         </div>
-      </header>
-      <nav class="crumbs" id="crumbs" aria-label="Folder path"></nav>
-      <div class="panel-body" id="body"></div>
-      <footer class="panel-foot" id="foot" aria-hidden="true">
-        <span><kbd class="arrows">← ↑ ↓ →</kbd> move</span>
-        <span><kbd>↵</kbd> open</span>
-        <span><kbd>⌫</kbd> back</span>
-        <span><kbd>/</kbd> filter</span>
-      </footer>
-    </section>
-
+        <div class="panel-scroll" id="panelScroll">
+          <section class="chip-section group" id="openTabs" aria-label="Open tabs" hidden>
+            <h3 class="group-label">Open tabs</h3>
+            <div class="open-tabs-list" id="openTabsList" role="list"></div>
+          </section>
+          <section class="chip-section group" id="recent" aria-label="Recently closed" hidden>
+            <h3 class="group-label">Recently closed</h3>
+            <div class="recent-list" id="recentList" role="list"></div>
+          </section>
+          <div class="panel-body" id="body"></div>
+        </div>
+      </section>
+    </div>
   </main>
 
   <script src="newtab.js"></script>
