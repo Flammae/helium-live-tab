@@ -405,15 +405,13 @@ kbd {
   text-decoration: none;
   cursor: pointer;
   outline: none;
-  transition: background .18s var(--ease), border-color .18s var(--ease), transform .18s var(--ease), box-shadow .18s var(--ease);
+  transition: background .18s var(--ease), border-color .18s var(--ease);
 }
 .item:hover {
   background: var(--tile-hover);
   border-color: var(--stroke-2);
-  transform: translateY(-1px);
-  box-shadow: 0 10px 26px -16px hsl(272 90% 3% / .9);
 }
-.item:active { transform: translateY(0); background: var(--tile-press); }
+.item:active { background: var(--tile-press); }
 .item:focus-visible,
 .root-tab:focus-visible,
 .chip:focus-visible,
@@ -966,9 +964,9 @@ kbd {
   --chip-glass-shadow-hover: 0 12px 26px -14px hsl(0 0% 0% / .8);
   --chip-glass-ring: hsl(0 0% 0% / .35);
   --chip-glass-backdrop: blur(10px) saturate(150%) brightness(.9);
-  --tile-glass-fill: hsl(0 0% 100% / .09);
-  --tile-glass-fill-hover: hsl(0 0% 100% / .15);
-  --tile-glass-fill-press: hsl(0 0% 100% / .2);
+  --tile-glass-fill: hsl(0 0% 100% / .075);
+  --tile-glass-fill-hover: hsl(0 0% 100% / .13);
+  --tile-glass-fill-press: hsl(0 0% 100% / .18);
   --edge-fade-tint: hsl(0 0% 0% / .16);
 }
 @media (prefers-color-scheme: light) {
@@ -989,9 +987,9 @@ kbd {
     --chip-glass-shadow-hover: 0 0 0 .5px hsl(0 0% 0% / .09), 0 12px 24px -14px hsl(0 0% 20% / .45);
     --chip-glass-ring: hsl(0 0% 100% / .7);
     --chip-glass-backdrop: blur(10px) saturate(160%) brightness(1.06);
-    --tile-glass-fill: hsl(0 0% 100% / .38);
-    --tile-glass-fill-hover: hsl(0 0% 100% / .55);
-    --tile-glass-fill-press: hsl(0 0% 100% / .66);
+    --tile-glass-fill: hsl(0 0% 100% / .32);
+    --tile-glass-fill-hover: hsl(0 0% 100% / .48);
+    --tile-glass-fill-press: hsl(0 0% 100% / .62);
     --edge-fade-tint: hsl(0 0% 100% / .2);
   }
 }
@@ -1031,15 +1029,24 @@ kbd {
 }
 
 /* Bookmark tiles are most of the scrolling area, and a backdrop blur on each of them over the playing
-   video is what made scrolling lag. They keep the lens, rims and specular edge on a denser fill instead;
-   only the smaller chips sample the wallpaper. */
+   video is what made scrolling lag. They share the chips' lens, sheen, caustic, rims and specular edge;
+   only the fill differs, standing in for the blur the chips get from the wallpaper.
+   Their hover is a single instant repaint: tiles are painted into the scroller rather than composited
+   like the blurred chips, so a transform or opacity animation on one makes Chrome promote every tile
+   painted after it (about 20 extra layers over the video), and even a colour fade re-rasterizes the
+   tile on every frame of the transition. */
 .item {
   --chip-glass-fill: var(--tile-glass-fill);
   --chip-glass-fill-hover: var(--tile-glass-fill-hover);
   --chip-glass-fill-press: var(--tile-glass-fill-press);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
+  transition: none;
 }
+.item:hover,
+.item:active { transform: none; }
+.item:hover,
+.item:active { box-shadow: var(--chip-glass-insets), var(--chip-glass-shadow); }
 
 /*
  * Liquid detail. Everything here is painted (gradients, inset shadows), never filtered, so it is
@@ -1050,7 +1057,6 @@ kbd {
   --chip-glass-edge-light: hsl(0 0% 100% / .2);
   --chip-glass-disperse-a: hsl(320 100% 82% / .34);
   --chip-glass-disperse-b: hsl(190 100% 78% / .32);
-  --tile-glass-frost: hsl(0 0% 100% / .06);
 }
 @media (prefers-color-scheme: light) {
   :root {
@@ -1058,7 +1064,6 @@ kbd {
     --chip-glass-edge-light: hsl(0 0% 100% / .65);
     --chip-glass-disperse-a: hsl(320 100% 86% / .6);
     --chip-glass-disperse-b: hsl(190 100% 82% / .6);
-    --tile-glass-frost: hsl(0 0% 100% / .22);
   }
 }
 :root {
@@ -1072,15 +1077,6 @@ kbd {
     inset 0 0 12px -5px var(--chip-glass-edge-light),
     inset -8px -10px 16px -12px var(--chip-glass-depth);
 }
-/* Tiles don't sample the wallpaper, so a soft top-down frost stands in for the blur. */
-.item {
-  --chip-glass-layers:
-    radial-gradient(140% 120% at 0% 0%, var(--chip-glass-lens), transparent 48%),
-    radial-gradient(90% 70% at 85% 135%, var(--chip-glass-caustic), transparent 62%),
-    linear-gradient(to bottom, var(--chip-glass-sheen), transparent 58%),
-    linear-gradient(170deg, var(--tile-glass-frost), transparent 70%);
-}
-
 /* Specular hairline: bright top-left, catching light again bottom-right; a faint pink/cyan split
    around the rim reads as refraction at the glass edge. */
 .chip::after,
@@ -1115,6 +1111,7 @@ kbd {
 .chip:hover::before,
 .item:hover::before,
 .item:focus-visible::before { opacity: 1; }
+.item::before { transition: none; }
 
 .chip-stack .chip-fav + .chip-fav { box-shadow: 0 0 0 1.5px var(--chip-glass-ring); }
 .peek { box-shadow: 0 0 0 1.5px var(--chip-glass-ring), 0 0 0 1px var(--stroke) inset; }
@@ -1178,9 +1175,48 @@ kbd {
 .chip:focus-visible::before,
 .chip-open:has(> .chip-main:focus-visible)::before { opacity: 1; }
 
+/*
+ * Sticky section headings. Each label sticks within its own section, so the next heading pushes the
+ * previous one off. The band behind it is a plain tint (no backdrop-filter) and only shows while the
+ * label is actually stuck, so in-flow headings look as before. z-index sits above the chips, tiles
+ * and the strip's right edge fade (3) so they all scroll underneath.
+ */
+:root {
+  --sticky-head-fill: hsl(0 0% 5% / .68);
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --sticky-head-fill: hsl(0 0% 100% / .66);
+  }
+}
+.group-label {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  isolation: isolate;
+  container-type: scroll-state;
+  margin: 0;
+  padding: 8px 4px 10px;
+}
+/* The label's old 8px top margin collapsed into these gaps; as padding it no longer does. */
+.group + .group { margin-top: 10px; }
+.chip-section.group { margin-bottom: 10px; }
+.group-label::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 -16px;
+  z-index: -1;
+  background: linear-gradient(to bottom, transparent, var(--sticky-head-fill) 8px, var(--sticky-head-fill) calc(100% - 26px), transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+@container scroll-state(stuck: top) {
+  .group-label::before { opacity: 1; }
+}
+
 .item,
-.open-tabs-list .chip-main { scroll-margin: 8px 8px 56px; }
-.recent-list .chip { scroll-margin: 8px 36px 56px 8px; }
+.open-tabs-list .chip-main { scroll-margin: 44px 8px 56px; }
+.recent-list .chip { scroll-margin: 44px 36px 56px 8px; }
 
 @media (prefers-reduced-motion: reduce) {
   .chip:hover, .item:hover, .item:active { transform: none; }
@@ -1193,6 +1229,7 @@ kbd {
     --chip-glass-fill-press: hsl(0 0% 24% / .97);
     --chip-glass-backdrop: none;
     --chip-glass-lens: transparent;
+    --sticky-head-fill: hsl(0 0% 8% / .97);
     --tile-glass-fill: hsl(0 0% 14% / .94);
     --tile-glass-fill-hover: hsl(0 0% 20% / .96);
     --tile-glass-fill-press: hsl(0 0% 24% / .97);
@@ -1204,6 +1241,7 @@ kbd {
     --chip-glass-fill-hover: hsl(0 0% 100% / .97);
     --chip-glass-fill-press: hsl(0 0% 100% / .98);
     --tile-glass-fill: hsl(0 0% 97% / .95);
+    --sticky-head-fill: hsl(0 0% 98% / .97);
     --tile-glass-fill-hover: hsl(0 0% 100% / .97);
     --tile-glass-fill-press: hsl(0 0% 100% / .98);
   }
@@ -1212,6 +1250,7 @@ kbd {
 @media (forced-colors: active) {
   .chip, .item { border-color: CanvasText; -webkit-backdrop-filter: none; backdrop-filter: none; }
   .edge-fade { display: none; }
+  .group-label::before { background: Canvas; }
   .chip::before, .chip::after, .item::before, .item::after { display: none; }
   .chip:focus-visible,
   .chip-open:has(> .chip-main:focus-visible),
