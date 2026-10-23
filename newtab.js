@@ -383,10 +383,29 @@ const sections = () => [$('#openTabs'), $('#recent'), ui.body];
 const sectionOf = (el) => sections().find((s) => s.contains(el));
 const byKey = (key, list = lane()) => (key ? list.find((el) => laneKey(el) === key) : null);
 
+// Instant, not smooth: a smooth scroll is still in flight when the next arrow press lands, which left
+// focus on chips scrolled out of view in the Recently closed strip.
 function focusEl(el) {
   if (!el) return;
   el.focus({ preventScroll: true });
-  el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: reduceMQ.matches ? 'auto' : 'smooth' });
+  el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  if (recent.list.contains(el) && recent.list.scrollWidth - recent.list.clientWidth - recent.list.scrollLeft < 240) {
+    appendChipSet(recent.list);
+  }
+}
+
+// The Recently closed strip is two masonry rows scrolling sideways. Left/right sweeps it by position
+// across both rows (roughly most recent first), so every chip is reached without jumping back left.
+const stripX = (el) => el.getBoundingClientRect().left + recent.list.scrollLeft;
+const stripRow = (el) => [...recent.list.children].indexOf(el.closest('.recent-row'));
+
+function ordered(list) {
+  const strip = list.filter((el) => recent.list.contains(el))
+    .sort((a, b) => stripX(a) - stripX(b) || stripRow(a) - stripRow(b));
+  if (!strip.length) return list;
+  const at = list.findIndex((el) => recent.list.contains(el));
+  const rest = list.filter((el) => !recent.list.contains(el));
+  return [...rest.slice(0, at), ...strip, ...rest.slice(at)];
 }
 
 function setRover(el) {
@@ -414,7 +433,7 @@ ui.panel.addEventListener('focusin', (e) => {
 });
 
 function moveFocus(dir) {
-  const list = lane();
+  const list = ordered(lane());
   if (!list.length) return;
   const cur = document.activeElement;
   const idx = list.indexOf(cur);
@@ -423,25 +442,41 @@ function moveFocus(dir) {
     focusEl(list[idx + (dir === 'right' ? 1 : -1)]);
     return;
   }
-  // Up/down is geometric so wrapped chip rows, the 2-row masonry and the tile grid all feel natural.
+  const down = dir === 'down';
+  if (recent.list.contains(cur)) {
+    const row = stripRow(cur) + (down ? 1 : -1);
+    const peers = list.filter((el) => recent.list.contains(el) && stripRow(el) === row);
+    if (peers.length) {
+      const cx = stripX(cur) + cur.offsetWidth / 2;
+      focusEl(peers.reduce((a, b) => (Math.abs(stripX(a) + a.offsetWidth / 2 - cx) <= Math.abs(stripX(b) + b.offsetWidth / 2 - cx) ? a : b)));
+      return;
+    }
+  }
+  // Otherwise geometric, so wrapped chip rows and the tile grid feel natural. Strip chips scrolled out
+  // of view are skipped when entering the strip from above or below.
   const r = cur.getBoundingClientRect();
   const cx = r.left + r.width / 2;
-  const down = dir === 'down';
-  let best = null;
-  let bestScore = Infinity;
-  for (const el of list) {
-    if (el === cur) continue;
-    const b = el.getBoundingClientRect();
-    const dy = down ? b.top - r.bottom : r.top - b.bottom;
-    if (dy < -2) continue;
-    const score = dy * 4 + Math.abs(b.left + b.width / 2 - cx);
-    if (score < bestScore) { bestScore = score; best = el; }
-  }
-  focusEl(best);
+  const sr = recent.list.getBoundingClientRect();
+  const inView = (b) => b.right > sr.left && b.left < sr.right;
+  const pick = (onlyVisible) => {
+    let best = null;
+    let bestScore = Infinity;
+    for (const el of list) {
+      if (el === cur) continue;
+      const b = el.getBoundingClientRect();
+      if (onlyVisible && recent.list.contains(el) && !inView(b)) continue;
+      const dy = down ? b.top - r.bottom : r.top - b.bottom;
+      if (dy < -2) continue;
+      const score = dy * 4 + Math.abs(b.left + b.width / 2 - cx);
+      if (score < bestScore) { bestScore = score; best = el; }
+    }
+    return best;
+  };
+  focusEl(pick(true) || pick(false));
 }
 
 function focusEdge(end, wholePanel) {
-  const list = lane();
+  const list = ordered(lane());
   const cur = document.activeElement;
   const sec = wholePanel || !list.includes(cur) ? null : sectionOf(cur);
   const scoped = sec ? list.filter((el) => sec.contains(el)) : list;
@@ -458,7 +493,7 @@ function jumpSection(step) {
 }
 
 function closeFocusedTab(main) {
-  const list = lane();
+  const list = ordered(lane());
   const idx = list.indexOf(main);
   const sec = sectionOf(main);
   const neighbor = [list[idx + 1], list[idx - 1]].find((el) => el && sectionOf(el) === sec) || list[idx + 1] || list[idx - 1];

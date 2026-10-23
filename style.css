@@ -964,36 +964,55 @@ kbd {
 
 /* ───────── Liquid glass chips + tiles ───────── */
 :root {
-  --chip-glass-fill: hsl(0 0% 100% / .06);
-  --chip-glass-fill-hover: hsl(0 0% 100% / .12);
-  --chip-glass-fill-press: hsl(0 0% 100% / .17);
-  --chip-glass-sheen: hsl(0 0% 100% / .09);
-  --chip-glass-rim-top: hsl(0 0% 100% / .2);
-  --chip-glass-rim-bottom: hsl(0 0% 100% / .05);
-  --chip-glass-edge-hi: hsl(0 0% 100% / .5);
-  --chip-glass-edge-lo: hsl(0 0% 100% / .1);
-  --chip-glass-glow: hsl(0 0% 100% / .16);
+  --chip-glass-fill: hsl(0 0% 100% / .07);
+  --chip-glass-fill-hover: hsl(0 0% 100% / .13);
+  --chip-glass-fill-press: hsl(0 0% 100% / .18);
+  --chip-glass-sheen: hsl(0 0% 100% / .13);
+  --chip-glass-lens: hsl(0 0% 100% / .09);
+  --chip-glass-rim-top: hsl(0 0% 100% / .34);
+  --chip-glass-rim-bottom: hsl(0 0% 100% / .1);
+  --chip-glass-depth: hsl(0 0% 0% / .28);
+  --chip-glass-edge-hi: hsl(0 0% 100% / .75);
+  --chip-glass-edge-lo: hsl(0 0% 100% / .14);
+  --chip-glass-edge-catch: hsl(0 0% 100% / .38);
+  --chip-glass-glow: hsl(0 0% 100% / .18);
   --chip-glass-shadow: 0 8px 20px -12px hsl(0 0% 0% / .7);
   --chip-glass-shadow-hover: 0 12px 26px -14px hsl(0 0% 0% / .8);
   --chip-glass-ring: hsl(0 0% 0% / .35);
-  --chip-glass-backdrop: blur(12px) saturate(170%) brightness(.9);
+  --chip-glass-backdrop: blur(18px) saturate(190%) brightness(.86) contrast(1.05);
+  --edge-fade-tint: hsl(0 0% 0% / .22);
 }
 @media (prefers-color-scheme: light) {
   :root {
-    --chip-glass-fill: hsl(0 0% 100% / .28);
-    --chip-glass-fill-hover: hsl(0 0% 100% / .46);
-    --chip-glass-fill-press: hsl(0 0% 100% / .6);
-    --chip-glass-sheen: hsl(0 0% 100% / .42);
-    --chip-glass-rim-top: hsl(0 0% 100% / .85);
-    --chip-glass-rim-bottom: hsl(0 0% 0% / .04);
-    --chip-glass-edge-hi: hsl(0 0% 100% / .95);
-    --chip-glass-edge-lo: hsl(0 0% 100% / .35);
-    --chip-glass-glow: hsl(0 0% 100% / .55);
-    --chip-glass-shadow: 0 0 0 .5px hsl(0 0% 0% / .07), 0 8px 18px -12px hsl(0 0% 20% / .35);
-    --chip-glass-shadow-hover: 0 0 0 .5px hsl(0 0% 0% / .08), 0 12px 24px -14px hsl(0 0% 20% / .45);
+    --chip-glass-fill: hsl(0 0% 100% / .3);
+    --chip-glass-fill-hover: hsl(0 0% 100% / .48);
+    --chip-glass-fill-press: hsl(0 0% 100% / .62);
+    --chip-glass-sheen: hsl(0 0% 100% / .5);
+    --chip-glass-lens: hsl(0 0% 100% / .38);
+    --chip-glass-rim-top: hsl(0 0% 100% / .95);
+    --chip-glass-rim-bottom: hsl(0 0% 100% / .55);
+    --chip-glass-depth: hsl(0 0% 0% / .06);
+    --chip-glass-edge-hi: hsl(0 0% 100% / 1);
+    --chip-glass-edge-lo: hsl(0 0% 100% / .45);
+    --chip-glass-edge-catch: hsl(0 0% 100% / .85);
+    --chip-glass-glow: hsl(0 0% 100% / .6);
+    --chip-glass-shadow: 0 0 0 .5px hsl(0 0% 0% / .08), 0 8px 18px -12px hsl(0 0% 20% / .35);
+    --chip-glass-shadow-hover: 0 0 0 .5px hsl(0 0% 0% / .09), 0 12px 24px -14px hsl(0 0% 20% / .45);
     --chip-glass-ring: hsl(0 0% 100% / .7);
-    --chip-glass-backdrop: blur(12px) saturate(180%) brightness(1.06);
+    --chip-glass-backdrop: blur(18px) saturate(200%) brightness(1.08);
+    --edge-fade-tint: hsl(0 0% 100% / .28);
   }
+}
+
+/* Lens highlight top-left + gloss, over the fill; the inset shades give the slab some thickness. */
+:root {
+  --chip-glass-layers:
+    radial-gradient(140% 120% at 0% 0%, var(--chip-glass-lens), transparent 48%),
+    linear-gradient(to bottom, var(--chip-glass-sheen), transparent 60%);
+  --chip-glass-insets:
+    inset 0 1px 0 var(--chip-glass-rim-top),
+    inset 0 -1px 0 var(--chip-glass-rim-bottom),
+    inset -8px -10px 16px -12px var(--chip-glass-depth);
 }
 
 .chip,
@@ -1001,22 +1020,22 @@ kbd {
   position: relative;
   isolation: isolate;
   border-color: transparent;
-  background: linear-gradient(to bottom, var(--chip-glass-sheen), transparent 60%), var(--chip-glass-fill);
+  background: var(--chip-glass-layers), var(--chip-glass-fill);
   -webkit-backdrop-filter: var(--chip-glass-backdrop);
   backdrop-filter: var(--chip-glass-backdrop);
-  box-shadow: inset 0 1px 0 var(--chip-glass-rim-top), inset 0 -1px 0 var(--chip-glass-rim-bottom), var(--chip-glass-shadow);
+  box-shadow: var(--chip-glass-insets), var(--chip-glass-shadow);
   transition: background-color .18s var(--ease), color .18s var(--ease), box-shadow .18s var(--ease), transform .18s var(--ease);
 }
 .chip:hover,
 .item:hover,
 .item:focus-visible {
   border-color: transparent;
-  background: linear-gradient(to bottom, var(--chip-glass-sheen), transparent 60%), var(--chip-glass-fill-hover);
-  box-shadow: inset 0 1px 0 var(--chip-glass-rim-top), inset 0 -1px 0 var(--chip-glass-rim-bottom), var(--chip-glass-shadow-hover);
+  background: var(--chip-glass-layers), var(--chip-glass-fill-hover);
+  box-shadow: var(--chip-glass-insets), var(--chip-glass-shadow-hover);
 }
 .chip:active,
 .item:active {
-  background: linear-gradient(to bottom, var(--chip-glass-sheen), transparent 60%), var(--chip-glass-fill-press);
+  background: var(--chip-glass-layers), var(--chip-glass-fill-press);
 }
 
 /* Specular hairline: bright top-left, catching light again bottom-right. */
@@ -1027,7 +1046,7 @@ kbd {
   inset: -1px;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(135deg, var(--chip-glass-edge-hi), var(--chip-glass-edge-lo) 32%, transparent 55%, transparent 72%, var(--chip-glass-edge-lo));
+  background: linear-gradient(135deg, var(--chip-glass-edge-hi), var(--chip-glass-edge-lo) 30%, transparent 50%, transparent 66%, var(--chip-glass-edge-lo) 84%, var(--chip-glass-edge-catch));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
@@ -1061,69 +1080,45 @@ kbd {
 }
 
 /*
- * Edge fades, per element.
- * A mask on .panel-scroll / .recent-list would make it a backdrop root, and every chip inside would
- * blur only that (transparent) layer instead of the wallpaper. So each faded element masks itself,
- * driven by a scroll-driven view timeline: same 48px bottom / 28px right ramps as the old masks.
+ * Edge fades. A mask on .panel-scroll / .recent-list would make it a backdrop root, and the chips
+ * inside would blur that transparent layer instead of the wallpaper. Instead a fixed overlay sits on
+ * each edge and frosts whatever scrolls under it; nothing inside the scrollers is masked or animated.
  */
-@property --lt-fade-y {
-  syntax: "<length-percentage>";
-  inherits: false;
-  initial-value: 100000px;
-}
-@property --lt-fade-x {
-  syntax: "<length-percentage>";
-  inherits: false;
-  initial-value: 100000px;
-}
-@keyframes lt-fade-y {
-  from { --lt-fade-y: 0%; }
-  to { --lt-fade-y: calc(100% + 48px); }
-}
-@keyframes lt-fade-x {
-  from { --lt-fade-x: 0%; }
-  to { --lt-fade-x: calc(100% + 28px); }
-}
-
 .panel-scroll,
 .recent-list {
   -webkit-mask: none;
   mask: none;
 }
-.recent-list { view-timeline: --lt-recent-y block; }
-
-.panel-scroll .group-label,
-.panel-scroll .item,
-.panel-scroll .folder-empty,
-.open-tabs-list > .chip {
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(var(--lt-fade-y) - 48px), transparent var(--lt-fade-y));
-  mask-image: linear-gradient(to bottom, #000 calc(var(--lt-fade-y) - 48px), transparent var(--lt-fade-y));
-  animation: lt-fade-y linear both;
-  animation-timeline: view(block);
-  animation-range: entry 0% entry calc(100% + 48px);
+.recent-strip { position: relative; }
+.edge-fade {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  backdrop-filter: blur(10px) saturate(140%);
+}
+.edge-fade-bottom {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 48px;
+  background: linear-gradient(to bottom, transparent, var(--edge-fade-tint));
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000);
+  mask-image: linear-gradient(to bottom, transparent, #000);
+  transition: opacity .2s var(--ease);
+}
+.panel:not(.fade-bottom) .edge-fade-bottom { opacity: 0; }
+.edge-fade-right {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 28px;
+  background: linear-gradient(to right, transparent, var(--edge-fade-tint));
+  -webkit-mask-image: linear-gradient(to right, transparent, #000);
+  mask-image: linear-gradient(to right, transparent, #000);
 }
 
-/* Recent chips scroll sideways in .recent-list, so their vertical position comes from the list's
-   timeline, offset by row: rows are 32px tall with a 6px gap. */
-.recent-list .chip {
-  --lt-row-top: 0px;
-  -webkit-mask-image:
-    linear-gradient(to right, #000 calc(var(--lt-fade-x) - 28px), transparent var(--lt-fade-x)),
-    linear-gradient(to bottom, #000 calc(var(--lt-fade-y) - 48px), transparent var(--lt-fade-y));
-  -webkit-mask-composite: source-in;
-  mask-image:
-    linear-gradient(to right, #000 calc(var(--lt-fade-x) - 28px), transparent var(--lt-fade-x)),
-    linear-gradient(to bottom, #000 calc(var(--lt-fade-y) - 48px), transparent var(--lt-fade-y));
-  mask-composite: intersect;
-  animation: lt-fade-x linear both, lt-fade-y linear both;
-  animation-timeline: view(inline), --lt-recent-y;
-  animation-range:
-    entry 0% entry calc(100% + 28px),
-    cover var(--lt-row-top) cover calc(var(--lt-row-top) + 32px + 48px);
-}
-.recent-row + .recent-row .chip { --lt-row-top: 38px; }
-
-/* Keyboard focus. The edge-fade mask clips everything outside the border box, so the ring sits inside it. */
+/* Keyboard focus: ring just inside the edge so it never collides with neighbours in tight chip rows. */
 :root {
   --focus-ring: hsl(0 0% 100%);
   --focus-halo: hsl(0 0% 0% / .5);
@@ -1139,8 +1134,8 @@ kbd {
 .item:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
-  background: linear-gradient(to bottom, var(--chip-glass-sheen), transparent 60%), var(--chip-glass-fill-hover);
-  box-shadow: inset 0 0 0 3.5px var(--focus-halo), inset 0 1px 0 var(--chip-glass-rim-top), var(--chip-glass-shadow-hover);
+  background: var(--chip-glass-layers), var(--chip-glass-fill-hover);
+  box-shadow: inset 0 0 0 3.5px var(--focus-halo), var(--chip-glass-insets), var(--chip-glass-shadow-hover);
 }
 .open-tabs-list .chip-main:focus-visible { outline: none; }
 .chip:focus-visible::before,
@@ -1160,7 +1155,9 @@ kbd {
     --chip-glass-fill-hover: hsl(0 0% 20% / .96);
     --chip-glass-fill-press: hsl(0 0% 24% / .97);
     --chip-glass-backdrop: none;
+    --chip-glass-lens: transparent;
   }
+  .edge-fade { -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 @media (prefers-reduced-transparency: reduce) and (prefers-color-scheme: light) {
   :root {
@@ -1172,6 +1169,7 @@ kbd {
 
 @media (forced-colors: active) {
   .chip, .item { border-color: CanvasText; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .edge-fade { display: none; }
   .chip::before, .chip::after, .item::before, .item::after { display: none; }
   .chip:focus-visible,
   .chip-open:has(> .chip-main:focus-visible),

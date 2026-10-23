@@ -34,10 +34,14 @@
           </section>
           <section class="chip-section group" id="recent" aria-label="Recently closed" hidden>
             <h3 class="group-label">Recently closed</h3>
-            <div class="recent-list" id="recentList" role="list" tabindex="-1"></div>
+            <div class="recent-strip">
+              <div class="recent-list" id="recentList" role="list" tabindex="-1"></div>
+              <div class="edge-fade edge-fade-right" aria-hidden="true"></div>
+            </div>
           </section>
           <div class="panel-body" id="body"></div>
         </div>
+        <div class="edge-fade edge-fade-bottom" aria-hidden="true"></div>
       </section>
     </div>
   </main>
