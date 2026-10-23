@@ -395,10 +395,11 @@ function focusEl(el) {
   }
 }
 
-// The Recently closed strip is two masonry rows scrolling sideways, repeated by clone sets. Left/right
-// sweeps it by position across both rows. Clones are never focused: when the next chip in view is a
-// clone, it trades places with its original (identical width, so nothing moves) and the original takes
-// focus, so the sweep keeps going right through the infinite strip with one focus target per session.
+// The Recently closed strip is two masonry rows scrolling sideways, repeated by clone sets (each row's
+// clones stay in that row). Left/right walk along the current row; up/down switch rows. Clones are
+// never focused: when the next chip in the row is a clone, it trades places with its original
+// (identical width, so nothing moves) and the original takes focus, so the walk keeps going through
+// the infinite strip with one focus target per session.
 const stripX = (el) => el.getBoundingClientRect().left + recent.list.scrollLeft;
 const stripRow = (el) => [...recent.list.children].indexOf(el.closest('.recent-row'));
 const stripChips = () => [...recent.list.querySelectorAll('.recent-row > .chip')];
@@ -414,26 +415,26 @@ function claimChip(el) {
   return orig;
 }
 
+const rowChips = (row) => [...(recent.list.children[row]?.children || [])].filter((el) => el.matches('.chip'));
+
+/** Next chip along the same row, or at a row end the first/last session of the neighbouring row. */
 function stripStep(cur, step) {
-  const x = stripX(cur);
   const row = stripRow(cur);
-  let best = null;
-  let bestKey = null;
-  for (const el of stripChips()) {
-    if (el === cur) continue;
-    const ex = stripX(el);
-    const k = [ex, stripRow(el)];
-    const ahead = step > 0 ? ex > x + 1 || (Math.abs(ex - x) <= 1 && k[1] > row) : ex < x - 1 || (Math.abs(ex - x) <= 1 && k[1] < row);
-    if (!ahead) continue;
-    const better = !bestKey || (step > 0 ? k[0] < bestKey[0] - 1 || (Math.abs(k[0] - bestKey[0]) <= 1 && k[1] < bestKey[1]) : k[0] > bestKey[0] + 1 || (Math.abs(k[0] - bestKey[0]) <= 1 && k[1] > bestKey[1]));
-    if (better) { best = el; bestKey = k; }
+  const at = rowChips(row).indexOf(cur);
+  let next = rowChips(row)[at + step];
+  // Rows differ in length, so the shorter one can run out before the strip-wide append in focusEl.
+  if (!next && step > 0 && recent.list.querySelector('.is-clone')) {
+    appendChipSet(recent.list);
+    next = rowChips(row)[at + 1];
   }
-  return best;
+  if (next) return next;
+  const other = rowChips(row + step).filter((el) => !el.classList.contains('is-clone'));
+  return step > 0 ? other[0] || null : other[other.length - 1] || null;
 }
 
 function ordered(list) {
   const strip = list.filter((el) => recent.list.contains(el))
-    .sort((a, b) => stripX(a) - stripX(b) || stripRow(a) - stripRow(b));
+    .sort((a, b) => stripRow(a) - stripRow(b) || stripX(a) - stripX(b));
   if (!strip.length) return list;
   const at = list.findIndex((el) => recent.list.contains(el));
   const rest = list.filter((el) => !recent.list.contains(el));
@@ -495,30 +496,34 @@ function moveFocus(dir) {
       return;
     }
   }
-  // Otherwise geometric, so wrapped chip rows and the tile grid feel natural. Strip chips scrolled out
-  // of view are skipped when entering the strip from above or below.
+  // Otherwise by rows: the nearest visual row above/below wins, then the chip closest in x within it,
+  // and rows inside the current section come before any other section (so a short wrapped second row
+  // of open tabs is never skipped). Strip chips scrolled out of view are skipped when entering the
+  // strip from above or below.
   const r = cur.getBoundingClientRect();
   const cx = r.left + r.width / 2;
   const sr = recent.list.getBoundingClientRect();
   const inView = (b) => b.right > sr.left && b.left < sr.right;
+  const sec = sectionOf(cur);
   const candidates = [...list, ...stripChips().filter((el) => el.classList.contains('is-clone'))];
-  const pick = (onlyVisible) => {
-    let best = null;
-    let bestScore = Infinity;
+  const pick = (onlyVisible, scope) => {
+    const found = [];
     for (const el of candidates) {
+      if (el === cur || el.dataset.key === cur.dataset.key) continue;
       if (!onlyVisible && el.classList.contains('is-clone')) continue;
-      if (el === cur) continue;
+      if (scope && !scope.contains(el)) continue;
       const b = el.getBoundingClientRect();
       if (onlyVisible && recent.list.contains(el) && !inView(b)) continue;
-      if (el.dataset.key === cur.dataset.key) continue;
       const dy = down ? b.top - r.bottom : r.top - b.bottom;
-      if (dy < -2) continue;
-      const score = dy * 4 + Math.abs(b.left + b.width / 2 - cx);
-      if (score < bestScore) { bestScore = score; best = el; }
+      if (dy >= -2) found.push({ el, b, dy });
     }
-    return best;
+    if (!found.length) return null;
+    const near = found.reduce((a, c) => (c.dy < a.dy ? c : a));
+    const band = near.dy + Math.max(4, near.b.height / 2);
+    return found.filter((c) => c.dy <= band)
+      .reduce((a, c) => (Math.abs(c.b.left + c.b.width / 2 - cx) < Math.abs(a.b.left + a.b.width / 2 - cx) ? c : a)).el;
   };
-  focusEl(claimChip(pick(true) || pick(false)));
+  focusEl(claimChip(pick(true, sec) || pick(false, sec) || pick(true) || pick(false)));
 }
 
 function focusEdge(end, wholePanel) {
