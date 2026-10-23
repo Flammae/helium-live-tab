@@ -40,7 +40,7 @@ function faviconURL(pageUrl, size = 32) {
 }
 
 function favicon(pageUrl, cls = 'fav') {
-  return h('img', { class: cls, src: faviconURL(pageUrl), alt: '', loading: 'lazy', decoding: 'async', draggable: 'false' });
+  return h('img', { class: cls, src: faviconURL(pageUrl), alt: '', decoding: 'async', draggable: 'false' });
 }
 
 function hostOf(url) {
@@ -389,15 +389,47 @@ function focusEl(el) {
   if (!el) return;
   el.focus({ preventScroll: true });
   el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  if (recent.list.contains(el) && recent.list.scrollWidth - recent.list.clientWidth - recent.list.scrollLeft < 240) {
-    appendChipSet(recent.list);
+  const l = recent.list;
+  if (l.contains(el) && l.scrollWidth > l.clientWidth + 8 && l.scrollWidth - l.clientWidth - l.scrollLeft < 240) {
+    appendChipSet(l);
   }
 }
 
-// The Recently closed strip is two masonry rows scrolling sideways. Left/right sweeps it by position
-// across both rows (roughly most recent first), so every chip is reached without jumping back left.
+// The Recently closed strip is two masonry rows scrolling sideways, repeated by clone sets. Left/right
+// sweeps it by position across both rows. Clones are never focused: when the next chip in view is a
+// clone, it trades places with its original (identical width, so nothing moves) and the original takes
+// focus, so the sweep keeps going right through the infinite strip with one focus target per session.
 const stripX = (el) => el.getBoundingClientRect().left + recent.list.scrollLeft;
 const stripRow = (el) => [...recent.list.children].indexOf(el.closest('.recent-row'));
+const stripChips = () => [...recent.list.querySelectorAll('.recent-row > .chip')];
+
+function claimChip(el) {
+  if (!el?.classList.contains('is-clone')) return el;
+  const orig = stripChips().find((c) => !c.classList.contains('is-clone') && c.dataset.key === el.dataset.key);
+  if (!orig) return null;
+  const mark = document.createComment('');
+  orig.replaceWith(mark);
+  el.replaceWith(orig);
+  mark.replaceWith(el);
+  return orig;
+}
+
+function stripStep(cur, step) {
+  const x = stripX(cur);
+  const row = stripRow(cur);
+  let best = null;
+  let bestKey = null;
+  for (const el of stripChips()) {
+    if (el === cur) continue;
+    const ex = stripX(el);
+    const k = [ex, stripRow(el)];
+    const ahead = step > 0 ? ex > x + 1 || (Math.abs(ex - x) <= 1 && k[1] > row) : ex < x - 1 || (Math.abs(ex - x) <= 1 && k[1] < row);
+    if (!ahead) continue;
+    const better = !bestKey || (step > 0 ? k[0] < bestKey[0] - 1 || (Math.abs(k[0] - bestKey[0]) <= 1 && k[1] < bestKey[1]) : k[0] > bestKey[0] + 1 || (Math.abs(k[0] - bestKey[0]) <= 1 && k[1] > bestKey[1]));
+    if (better) { best = el; bestKey = k; }
+  }
+  return best;
+}
 
 function ordered(list) {
   const strip = list.filter((el) => recent.list.contains(el))
@@ -438,17 +470,28 @@ function moveFocus(dir) {
   const cur = document.activeElement;
   const idx = list.indexOf(cur);
   if (idx === -1) { focusEl(byKey(rover.key, list) || list[0]); return; }
+  const inStrip = recent.list.contains(cur);
   if (dir === 'left' || dir === 'right') {
-    focusEl(list[idx + (dir === 'right' ? 1 : -1)]);
+    const step = dir === 'right' ? 1 : -1;
+    const next = inStrip ? claimChip(stripStep(cur, step)) : null;
+    if (next) { focusEl(next); return; }
+    const after = ordered(lane());
+    const at = after.indexOf(cur);
+    const strip = after.filter((el) => recent.list.contains(el));
+    // Leaving the strip sideways goes to the section before / after it, not to another strip chip.
+    const out = inStrip
+      ? after[step > 0 ? after.indexOf(strip[strip.length - 1]) + 1 : after.indexOf(strip[0]) - 1]
+      : after[at + step];
+    focusEl(out);
     return;
   }
   const down = dir === 'down';
-  if (recent.list.contains(cur)) {
+  if (inStrip) {
     const row = stripRow(cur) + (down ? 1 : -1);
-    const peers = list.filter((el) => recent.list.contains(el) && stripRow(el) === row);
+    const cx = stripX(cur) + cur.offsetWidth / 2;
+    const peers = stripChips().filter((el) => stripRow(el) === row);
     if (peers.length) {
-      const cx = stripX(cur) + cur.offsetWidth / 2;
-      focusEl(peers.reduce((a, b) => (Math.abs(stripX(a) + a.offsetWidth / 2 - cx) <= Math.abs(stripX(b) + b.offsetWidth / 2 - cx) ? a : b)));
+      focusEl(claimChip(peers.reduce((a, b) => (Math.abs(stripX(a) + a.offsetWidth / 2 - cx) <= Math.abs(stripX(b) + b.offsetWidth / 2 - cx) ? a : b))));
       return;
     }
   }
@@ -458,13 +501,16 @@ function moveFocus(dir) {
   const cx = r.left + r.width / 2;
   const sr = recent.list.getBoundingClientRect();
   const inView = (b) => b.right > sr.left && b.left < sr.right;
+  const candidates = [...list, ...stripChips().filter((el) => el.classList.contains('is-clone'))];
   const pick = (onlyVisible) => {
     let best = null;
     let bestScore = Infinity;
-    for (const el of list) {
+    for (const el of candidates) {
+      if (!onlyVisible && el.classList.contains('is-clone')) continue;
       if (el === cur) continue;
       const b = el.getBoundingClientRect();
       if (onlyVisible && recent.list.contains(el) && !inView(b)) continue;
+      if (el.dataset.key === cur.dataset.key) continue;
       const dy = down ? b.top - r.bottom : r.top - b.bottom;
       if (dy < -2) continue;
       const score = dy * 4 + Math.abs(b.left + b.width / 2 - cx);
@@ -472,13 +518,18 @@ function moveFocus(dir) {
     }
     return best;
   };
-  focusEl(pick(true) || pick(false));
+  focusEl(claimChip(pick(true) || pick(false)));
 }
 
 function focusEdge(end, wholePanel) {
   const list = ordered(lane());
   const cur = document.activeElement;
   const sec = wholePanel || !list.includes(cur) ? null : sectionOf(cur);
+  if (sec === recent.el && !end) {
+    const first = stripChips().reduce((a, b) => (stripX(b) < stripX(a) - 1 ? b : a));
+    focusEl(claimChip(first));
+    return;
+  }
   const scoped = sec ? list.filter((el) => sec.contains(el)) : list;
   focusEl(end ? scoped[scoped.length - 1] : scoped[0]);
 }

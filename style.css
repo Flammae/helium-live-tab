@@ -489,8 +489,6 @@ kbd {
   border-radius: 7px;
   background: var(--fav-bg);
   box-shadow: 0 0 0 1.5px var(--glass), 0 0 0 1px var(--stroke) inset;
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
 }
 @media (prefers-color-scheme: dark) {
   .peek { box-shadow: 0 0 0 1.5px hsl(272 50% 8%); }
@@ -745,12 +743,6 @@ kbd {
 }
 
 
-/* ───────── Liquid glass (v3: refracting edges, Chromium SVG backdrop filter) ───────── */
-.panel,
-.recent {
-  -webkit-backdrop-filter: blur(14px) saturate(220%) brightness(1.08) url(#liquid);
-  backdrop-filter: blur(14px) saturate(220%) brightness(1.08) url(#liquid);
-}
 
 /* ───────── Neutral glass (no pink tint) ───────── */
 :root {
@@ -791,16 +783,10 @@ kbd {
   }
   .root-tab[aria-selected="true"] { box-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 hsl(0 0% 30% / .08), 0 2px 8px -4px hsl(0 0% 20% / .25); }
 }
-.panel,
-.recent {
-  -webkit-backdrop-filter: blur(14px) saturate(120%) brightness(1.06) url(#liquid);
-  backdrop-filter: blur(14px) saturate(120%) brightness(1.06) url(#liquid);
-}
 .panel::after,
 .recent::after {
   background: radial-gradient(120% 60% at 20% -10%, var(--lg-sheen), transparent 55%);
 }
-.fx-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 
 
 /* ───────── Chrome-less + one shared scroll ───────── */
@@ -979,8 +965,11 @@ kbd {
   --chip-glass-shadow: 0 8px 20px -12px hsl(0 0% 0% / .7);
   --chip-glass-shadow-hover: 0 12px 26px -14px hsl(0 0% 0% / .8);
   --chip-glass-ring: hsl(0 0% 0% / .35);
-  --chip-glass-backdrop: blur(18px) saturate(190%) brightness(.86) contrast(1.05);
-  --edge-fade-tint: hsl(0 0% 0% / .22);
+  --chip-glass-backdrop: blur(10px) saturate(150%) brightness(.9);
+  --tile-glass-fill: hsl(0 0% 100% / .09);
+  --tile-glass-fill-hover: hsl(0 0% 100% / .15);
+  --tile-glass-fill-press: hsl(0 0% 100% / .2);
+  --edge-fade-tint: hsl(0 0% 0% / .16);
 }
 @media (prefers-color-scheme: light) {
   :root {
@@ -999,8 +988,11 @@ kbd {
     --chip-glass-shadow: 0 0 0 .5px hsl(0 0% 0% / .08), 0 8px 18px -12px hsl(0 0% 20% / .35);
     --chip-glass-shadow-hover: 0 0 0 .5px hsl(0 0% 0% / .09), 0 12px 24px -14px hsl(0 0% 20% / .45);
     --chip-glass-ring: hsl(0 0% 100% / .7);
-    --chip-glass-backdrop: blur(18px) saturate(200%) brightness(1.08);
-    --edge-fade-tint: hsl(0 0% 100% / .28);
+    --chip-glass-backdrop: blur(10px) saturate(160%) brightness(1.06);
+    --tile-glass-fill: hsl(0 0% 100% / .38);
+    --tile-glass-fill-hover: hsl(0 0% 100% / .55);
+    --tile-glass-fill-press: hsl(0 0% 100% / .66);
+    --edge-fade-tint: hsl(0 0% 100% / .2);
   }
 }
 
@@ -1036,6 +1028,17 @@ kbd {
 .chip:active,
 .item:active {
   background: var(--chip-glass-layers), var(--chip-glass-fill-press);
+}
+
+/* Bookmark tiles are most of the scrolling area, and a backdrop blur on each of them over the playing
+   video is what made scrolling lag. They keep the lens, rims and specular edge on a denser fill instead;
+   only the smaller chips sample the wallpaper. */
+.item {
+  --chip-glass-fill: var(--tile-glass-fill);
+  --chip-glass-fill-hover: var(--tile-glass-fill-hover);
+  --chip-glass-fill-press: var(--tile-glass-fill-press);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 /* Specular hairline: bright top-left, catching light again bottom-right. */
@@ -1080,9 +1083,8 @@ kbd {
 }
 
 /*
- * Edge fades. A mask on .panel-scroll / .recent-list would make it a backdrop root, and the chips
- * inside would blur that transparent layer instead of the wallpaper. Instead a fixed overlay sits on
- * each edge and frosts whatever scrolls under it; nothing inside the scrollers is masked or animated.
+ * Edge fades. A mask on .panel-scroll / .recent-list would make it a backdrop root and cut the chips'
+ * blur off from the wallpaper, so each edge is a fixed, plain gradient tint laid over the scroller.
  */
 .panel-scroll,
 .recent-list {
@@ -1094,8 +1096,6 @@ kbd {
   position: absolute;
   z-index: 3;
   pointer-events: none;
-  -webkit-backdrop-filter: blur(10px) saturate(140%);
-  backdrop-filter: blur(10px) saturate(140%);
 }
 .edge-fade-bottom {
   left: 0;
@@ -1103,19 +1103,13 @@ kbd {
   bottom: 0;
   height: 48px;
   background: linear-gradient(to bottom, transparent, var(--edge-fade-tint));
-  -webkit-mask-image: linear-gradient(to bottom, transparent, #000);
-  mask-image: linear-gradient(to bottom, transparent, #000);
-  transition: opacity .2s var(--ease);
 }
-.panel:not(.fade-bottom) .edge-fade-bottom { opacity: 0; }
 .edge-fade-right {
   top: 0;
   right: 0;
   bottom: 0;
   width: 28px;
   background: linear-gradient(to right, transparent, var(--edge-fade-tint));
-  -webkit-mask-image: linear-gradient(to right, transparent, #000);
-  mask-image: linear-gradient(to right, transparent, #000);
 }
 
 /* Keyboard focus: ring just inside the edge so it never collides with neighbours in tight chip rows. */
@@ -1156,14 +1150,19 @@ kbd {
     --chip-glass-fill-press: hsl(0 0% 24% / .97);
     --chip-glass-backdrop: none;
     --chip-glass-lens: transparent;
+    --tile-glass-fill: hsl(0 0% 14% / .94);
+    --tile-glass-fill-hover: hsl(0 0% 20% / .96);
+    --tile-glass-fill-press: hsl(0 0% 24% / .97);
   }
-  .edge-fade { -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 @media (prefers-reduced-transparency: reduce) and (prefers-color-scheme: light) {
   :root {
     --chip-glass-fill: hsl(0 0% 97% / .95);
     --chip-glass-fill-hover: hsl(0 0% 100% / .97);
     --chip-glass-fill-press: hsl(0 0% 100% / .98);
+    --tile-glass-fill: hsl(0 0% 97% / .95);
+    --tile-glass-fill-hover: hsl(0 0% 100% / .97);
+    --tile-glass-fill-press: hsl(0 0% 100% / .98);
   }
 }
 
