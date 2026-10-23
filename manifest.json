@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Live Tab \u2014 Metamorphic",
   "short_name": "Live Tab",
-  "version": "2.6.14",
+  "version": "2.6.24",
   "description": "A live-wallpaper new tab for your bookmarks, open tabs, and recently closed tabs. Fully local: loads nothing from the network.",
   "minimum_chrome_version": "120",
   "chrome_url_overrides": {

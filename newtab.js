@@ -370,8 +370,8 @@ ui.manage.addEventListener('click', () => openInternal('chrome://bookmarks/'));
 /* ───────────────────────── Keyboard navigation ───────────────────────── */
 
 // One roving lane across the panel: open tabs → recently closed → bookmarks. Exactly one lane
-// element has tabindex=0; arrows move between the rest. Infinite-scroll clones are never in it.
-const LANE = '.open-tabs-list .chip-main, .recent-list .chip:not(.is-clone), #body .item:not(.is-disabled)';
+// element has tabindex=0; arrows move between the rest.
+const LANE = '.open-tabs-list .chip-main, .recent-list .chip, #body .item:not(.is-disabled)';
 const rover = { key: null, bySection: new Map() };
 // Focus is only ever moved programmatically while the user is driving the panel with the keyboard,
 // so a new tab never pulls focus away from the address bar (or anything else).
@@ -389,46 +389,22 @@ function focusEl(el) {
   if (!el) return;
   el.focus({ preventScroll: true });
   el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  const l = recent.list;
-  if (l.contains(el) && l.scrollWidth > l.clientWidth + 8 && l.scrollWidth - l.clientWidth - l.scrollLeft < 240) {
-    appendChipSet(l);
-  }
 }
 
-// The Recently closed strip is two masonry rows scrolling sideways, repeated by clone sets (each row's
-// clones stay in that row). Left/right walk along the current row; up/down switch rows. Clones are
-// never focused: when the next chip in the row is a clone, it trades places with its original
-// (identical width, so nothing moves) and the original takes focus, so the walk keeps going through
-// the infinite strip with one focus target per session.
+// Recently closed: two masonry rows scrolling sideways. Left/right walk the current row;
+// up/down switch rows. Full list is rendered once (no clone runway).
 const stripX = (el) => el.getBoundingClientRect().left + recent.list.scrollLeft;
 const stripRow = (el) => [...recent.list.children].indexOf(el.closest('.recent-row'));
 const stripChips = () => [...recent.list.querySelectorAll('.recent-row > .chip')];
-
-function claimChip(el) {
-  if (!el?.classList.contains('is-clone')) return el;
-  const orig = stripChips().find((c) => !c.classList.contains('is-clone') && c.dataset.key === el.dataset.key);
-  if (!orig) return null;
-  const mark = document.createComment('');
-  orig.replaceWith(mark);
-  el.replaceWith(orig);
-  mark.replaceWith(el);
-  return orig;
-}
-
 const rowChips = (row) => [...(recent.list.children[row]?.children || [])].filter((el) => el.matches('.chip'));
 
-/** Next chip along the same row, or at a row end the first/last session of the neighbouring row. */
+/** Next chip along the same row, or at a row end the first/last chip of the neighbouring row. */
 function stripStep(cur, step) {
   const row = stripRow(cur);
   const at = rowChips(row).indexOf(cur);
-  let next = rowChips(row)[at + step];
-  // Rows differ in length, so the shorter one can run out before the strip-wide append in focusEl.
-  if (!next && step > 0 && recent.list.querySelector('.is-clone')) {
-    appendChipSet(recent.list);
-    next = rowChips(row)[at + 1];
-  }
+  const next = rowChips(row)[at + step];
   if (next) return next;
-  const other = rowChips(row + step).filter((el) => !el.classList.contains('is-clone'));
+  const other = rowChips(row + step);
   return step > 0 ? other[0] || null : other[other.length - 1] || null;
 }
 
@@ -474,7 +450,7 @@ function moveFocus(dir) {
   const inStrip = recent.list.contains(cur);
   if (dir === 'left' || dir === 'right') {
     const step = dir === 'right' ? 1 : -1;
-    const next = inStrip ? claimChip(stripStep(cur, step)) : null;
+    const next = inStrip ? stripStep(cur, step) : null;
     if (next) { focusEl(next); return; }
     const after = ordered(lane());
     const at = after.indexOf(cur);
@@ -492,7 +468,7 @@ function moveFocus(dir) {
     const cx = stripX(cur) + cur.offsetWidth / 2;
     const peers = stripChips().filter((el) => stripRow(el) === row);
     if (peers.length) {
-      focusEl(claimChip(peers.reduce((a, b) => (Math.abs(stripX(a) + a.offsetWidth / 2 - cx) <= Math.abs(stripX(b) + b.offsetWidth / 2 - cx) ? a : b))));
+      focusEl(peers.reduce((a, b) => (Math.abs(stripX(a) + a.offsetWidth / 2 - cx) <= Math.abs(stripX(b) + b.offsetWidth / 2 - cx) ? a : b)));
       return;
     }
   }
@@ -505,12 +481,11 @@ function moveFocus(dir) {
   const sr = recent.list.getBoundingClientRect();
   const inView = (b) => b.right > sr.left && b.left < sr.right;
   const sec = sectionOf(cur);
-  const candidates = [...list, ...stripChips().filter((el) => el.classList.contains('is-clone'))];
+  const candidates = list;
   const pick = (onlyVisible, scope) => {
     const found = [];
     for (const el of candidates) {
-      if (el === cur || el.dataset.key === cur.dataset.key) continue;
-      if (!onlyVisible && el.classList.contains('is-clone')) continue;
+      if (el === cur) continue;
       if (scope && !scope.contains(el)) continue;
       const b = el.getBoundingClientRect();
       if (onlyVisible && recent.list.contains(el) && !inView(b)) continue;
@@ -523,7 +498,7 @@ function moveFocus(dir) {
     return found.filter((c) => c.dy <= band)
       .reduce((a, c) => (Math.abs(c.b.left + c.b.width / 2 - cx) < Math.abs(a.b.left + a.b.width / 2 - cx) ? c : a)).el;
   };
-  focusEl(claimChip(pick(true, sec) || pick(false, sec) || pick(true) || pick(false)));
+  focusEl(pick(true, sec) || pick(false, sec) || pick(true) || pick(false));
 }
 
 function focusEdge(end, wholePanel) {
@@ -532,7 +507,7 @@ function focusEdge(end, wholePanel) {
   const sec = wholePanel || !list.includes(cur) ? null : sectionOf(cur);
   if (sec === recent.el && !end) {
     const first = stripChips().reduce((a, b) => (stripX(b) < stripX(a) - 1 ? b : a));
-    focusEl(claimChip(first));
+    focusEl(first);
     return;
   }
   const scoped = sec ? list.filter((el) => sec.contains(el)) : list;
@@ -714,45 +689,22 @@ function makeRecentChip(s) {
   return null;
 }
 
-function cloneChip(orig) {
-  const clone = orig.cloneNode(true);
-  clone.classList.add('is-clone');
-  clone.tabIndex = -1;
-  clone.setAttribute('aria-hidden', 'true');
-  clone.addEventListener('click', (e) => {
-    e.preventDefault();
-    orig.click();
-  });
-  return clone;
-}
-
-function appendChipSet(list) {
-  const seeds = list._seedRows;
-  if (!seeds?.length) return;
-  const rows = [...list.querySelectorAll(':scope > .recent-row')];
-  seeds.forEach((seedChips, i) => {
-    const row = rows[i];
-    if (!row) return;
-    seedChips.forEach((orig) => row.appendChild(cloneChip(orig)));
-  });
-}
-
 function wireChipStripScroll(list) {
   if (list._scrollWired) return;
   list._scrollWired = true;
-  list.addEventListener('wheel', (e) => {
-    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+  const onWheel = (e) => {
     if (list.scrollWidth <= list.clientWidth + 1) return;
-    e.preventDefault();
-    list.scrollLeft += e.deltaY;
-  }, { passive: false });
-  list.addEventListener('scroll', () => {
-    const room = list.scrollWidth - list.clientWidth - list.scrollLeft;
-    if (room < 240) appendChipSet(list);
-  }, { passive: true });
+    // Map vertical wheel to horizontal strip scroll (trackpads).
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      e.preventDefault();
+      list.scrollLeft += e.deltaY;
+    }
+  };
+  list.addEventListener('wheel', onWheel, { passive: false });
+  list.parentElement?.addEventListener('wheel', onWheel, { passive: false });
 }
 
-/** Pack chips into two rows by shortest width (horizontal masonry). */
+/** Pack chips into two rows by shortest width (horizontal masonry). Full list once — scroll ends at the last chip. */
 function layoutChipMasonry(list, chips) {
   const row0 = h('div', { class: 'recent-row' });
   const row1 = h('div', { class: 'recent-row' });
@@ -780,15 +732,6 @@ function layoutChipMasonry(list, chips) {
     }
   });
   if (!row1.childElementCount) row1.remove();
-
-  list._seedRows = [...list.querySelectorAll(':scope > .recent-row')].map(
-    (row) => [...row.children],
-  );
-
-  requestAnimationFrame(() => {
-    if (list.scrollWidth <= list.clientWidth + 8) return;
-    appendChipSet(list);
-  });
 
   wireChipStripScroll(list);
 }
