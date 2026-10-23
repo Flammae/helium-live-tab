@@ -327,7 +327,7 @@ function linkRow(n) {
 
 function section(label, count, grid) {
   return h('section', { class: 'group' },
-    h('h3', { class: 'group-label' }, label, count != null ? h('span', { class: 'count' }, count) : null),
+    h('h3', { class: 'group-label' }, h('span', { class: 'group-label-text' }, label, count != null ? h('span', { class: 'count' }, count) : null)),
     grid);
 }
 
