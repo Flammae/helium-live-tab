@@ -28,6 +28,20 @@
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, "Segoe UI", Roboto, sans-serif;
   --font-display: -apple-system-headline, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", system-ui, sans-serif;
   --ease: cubic-bezier(.2, .8, .2, 1);
+
+  /*
+   * Type scale. One family, five roles; hierarchy comes from size + weight + ink, never from case.
+   * Tracking follows SF's optical curve: tighter as size grows, neutral at caption sizes.
+   */
+  --type-heading: 680 15px/20px var(--font-display);
+  --type-heading-track: -.016em;
+  --type-title: 590 13.5px/18px var(--font);
+  --type-title-track: -.01em;
+  --type-label: 510 13px/16px var(--font);
+  --type-label-track: -.006em;
+  --type-meta: 450 11.5px/15px var(--font);
+  --type-meta-track: 0em;
+  --type-count: 550 12px/16px var(--font);
 }
 
 @media (prefers-color-scheme: light) {
@@ -72,6 +86,8 @@ body {
   background: transparent;
   color: var(--ink);
   font: 13px/1.4 var(--font);
+  font-kerning: normal;
+  font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -373,13 +389,23 @@ kbd {
   align-items: center;
   gap: 8px;
   margin: 8px 4px 10px;
-  color: var(--ink-3);
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: .08em;
-  text-transform: uppercase;
+  color: var(--ink);
+  font: var(--type-heading);
+  letter-spacing: var(--type-heading-track);
+  text-shadow: var(--type-halo-heading);
 }
-.group-label .count { letter-spacing: 0; }
+/* Counts read as a quiet annotation of the heading, not a second control. */
+.group-label .count {
+  display: inline;
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  background: none;
+  color: var(--ink-3);
+  font: var(--type-count);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
 
 .grid {
   display: grid;
@@ -437,21 +463,21 @@ kbd {
 }
 .fav { width: 18px; height: 18px; border-radius: 4px; }
 
-.item-text { display: grid; min-width: 0; gap: 1px; }
+.item-text { display: grid; min-width: 0; gap: 2px; text-shadow: var(--type-halo); }
 .item-title {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 13.5px;
-  font-weight: 560;
-  letter-spacing: -.01em;
+  font: var(--type-title);
+  letter-spacing: var(--type-title-track);
 }
 .item-sub {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
   color: var(--ink-3);
-  font-size: 11.5px;
+  font: var(--type-meta);
+  letter-spacing: var(--type-meta-track);
 }
 
 .folder-card { padding-right: 10px; }
@@ -508,8 +534,9 @@ kbd {
   text-align: center;
 }
 .folder-empty-ico svg { width: 34px; height: 34px; fill: none; stroke: var(--ink-3); stroke-width: 1.4; }
-.folder-empty-title { margin: 6px 0 0; font-size: 15px; font-weight: 620; }
-.folder-empty-sub { margin: 0; color: var(--ink-3); }
+.folder-empty { text-shadow: var(--type-halo); }
+.folder-empty-title { margin: 8px 0 0; font: var(--type-heading); letter-spacing: var(--type-heading-track); text-wrap: balance; }
+.folder-empty-sub { max-width: 40ch; margin: 0; color: var(--ink-2); font: 450 13px/18px var(--font); letter-spacing: var(--type-label-track); text-wrap: pretty; }
 
 /* ───────── Empty state (no bookmarks at all) ───────── */
 
@@ -547,16 +574,20 @@ kbd {
 @keyframes float {
   50% { transform: translateY(-5px); }
 }
+.empty { text-shadow: var(--type-halo); }
 .empty-title {
   margin: 0 0 8px;
-  font: 650 21px/1.2 var(--font-display);
-  letter-spacing: -.02em;
+  font: 700 22px/28px var(--font-display);
+  letter-spacing: -.022em;
+  text-wrap: balance;
 }
 .empty-text {
+  max-width: 44ch;
   margin: 0 0 24px;
   color: var(--ink-2);
-  font-size: 14px;
-  line-height: 1.75;
+  font: 450 14px/24px var(--font);
+  letter-spacing: -.008em;
+  text-wrap: pretty;
 }
 .empty-text kbd { font-size: 12px; color: var(--ink); }
 .empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
@@ -568,7 +599,9 @@ kbd {
   border: 1px solid var(--stroke-2);
   background: var(--tile);
   color: var(--ink);
-  font-weight: 580;
+  font: 590 13px/1 var(--font);
+  letter-spacing: var(--type-label-track);
+  text-shadow: none;
   cursor: pointer;
   transition: background .2s, transform .2s var(--ease), box-shadow .2s;
 }
@@ -634,8 +667,9 @@ kbd {
   border: 1px solid var(--stroke);
   background: var(--tile);
   color: var(--ink-2);
-  font-size: 12.5px;
-  font-weight: 520;
+  font: var(--type-label);
+  letter-spacing: var(--type-label-track);
+  text-shadow: var(--type-halo);
   cursor: pointer;
   transition: background .18s, color .18s, border-color .18s;
 }
@@ -754,9 +788,13 @@ kbd {
   --edge-a: hsl(0 0% 100% / .42);
   --edge-b: hsl(0 0% 100% / .14);
   --edge-c: hsl(0 0% 100% / .28);
-  --ink: hsl(0 0% 97%);
-  --ink-2: hsl(0 0% 88% / .74);
-  --ink-3: hsl(0 0% 82% / .48);
+  /* Ink steps sized for the brightest wallpaper frame behind a .07 glass fill, not for a flat dark bg. */
+  --ink: hsl(0 0% 98%);
+  --ink-2: hsl(0 0% 94% / .82);
+  --ink-3: hsl(0 0% 92% / .66);
+  /* Tight contact shadow: separates glyph edges from moving video without looking embossed. */
+  --type-halo: 0 .5px 1.5px hsl(0 0% 0% / .32);
+  --type-halo-heading: 0 1px 2px hsl(0 0% 0% / .28), 0 0 14px hsl(0 0% 0% / .22);
   --shadow: 0 40px 100px -30px hsl(0 0% 0% / .8), 0 12px 32px -12px hsl(0 0% 0% / .6);
   --lg-tint: hsl(0 0% 12% / .16);
   --lg-rim-bot: hsl(0 0% 100% / .14);
@@ -773,9 +811,11 @@ kbd {
     --stroke-2: hsl(0 0% 20% / .16);
     --edge-b: hsl(0 0% 100% / .5);
     --edge-c: hsl(0 0% 100% / .8);
-    --ink: hsl(0 0% 10%);
-    --ink-2: hsl(0 0% 18% / .72);
-    --ink-3: hsl(0 0% 22% / .5);
+    --ink: hsl(0 0% 9%);
+    --ink-2: hsl(0 0% 12% / .78);
+    --ink-3: hsl(0 0% 14% / .6);
+    --type-halo: 0 .5px 1px hsl(0 0% 100% / .5);
+    --type-halo-heading: 0 0 1px hsl(0 0% 100% / .6), 0 0 14px hsl(0 0% 100% / .5);
     --shadow: 0 40px 90px -36px hsl(0 0% 20% / .4), 0 10px 30px -14px hsl(0 0% 20% / .22);
     --lg-tint: hsl(0 0% 100% / .2);
   }
@@ -909,7 +949,7 @@ kbd {
   background: transparent;
   color: inherit;
   font: inherit;
-  font-weight: 520;
+  letter-spacing: inherit;
   cursor: pointer;
 }
 .open-tabs-list .chip-main:hover { color: var(--ink); }
@@ -925,9 +965,8 @@ kbd {
   border-radius: 0 10px 10px 0;
   background: transparent;
   color: var(--ink-3);
-  font: inherit;
-  font-size: 16px;
-  line-height: 1;
+  font: 300 17px/1 var(--font);
+  text-shadow: none;
   cursor: pointer;
 }
 .open-tabs-list .chip-close:hover {
@@ -1177,41 +1216,55 @@ kbd {
 
 /*
  * Sticky section headings. Each label sticks within its own section, so the next heading pushes the
- * previous one off. The band behind it is a plain tint (no backdrop-filter) and only shows while the
- * label is actually stuck, so in-flow headings look as before. z-index sits above the chips, tiles
- * and the strip's right edge fade (3) so they all scroll underneath.
+ * previous one off. The label box is a chip-height capsule hugging the text; while stuck it turns into
+ * chip glass so the heading stays legible over whatever scrolls beneath it. Only the stuck label (at
+ * most one) carries a backdrop filter, so in-flow headings cost nothing. z-index sits above the chips,
+ * tiles and the strip's right edge fade (3) so they all scroll underneath.
  */
 :root {
-  --sticky-head-fill: hsl(0 0% 5% / .68);
+  --sticky-head-fill: hsl(0 0% 8% / .52);
+  --sticky-head-backdrop: blur(20px) saturate(160%) brightness(.85);
 }
 @media (prefers-color-scheme: light) {
   :root {
-    --sticky-head-fill: hsl(0 0% 100% / .66);
+    --sticky-head-fill: hsl(0 0% 100% / .62);
+    --sticky-head-backdrop: blur(20px) saturate(160%) brightness(1.08);
   }
 }
 .group-label {
   position: sticky;
-  top: 0;
+  top: 6px;
   z-index: 4;
   isolation: isolate;
   container-type: scroll-state;
-  margin: 0;
-  padding: 8px 4px 10px;
+  align-items: baseline;
+  gap: 7px;
+  width: fit-content;
+  height: 32px;
+  /* Top margin matches the sticky offset, so a heading at rest is never reported as stuck. */
+  margin: 6px 0 4px;
+  padding: 6px 12px 6px 10px;
+  border-radius: 10px;
 }
-/* The label's old 8px top margin collapsed into these gaps; as padding it no longer does. */
 .group + .group { margin-top: 10px; }
 .chip-section.group { margin-bottom: 10px; }
 .group-label::before {
   content: "";
   position: absolute;
-  inset: 0 0 -16px;
+  inset: 0;
   z-index: -1;
-  background: linear-gradient(to bottom, transparent, var(--sticky-head-fill) 8px, var(--sticky-head-fill) calc(100% - 26px), transparent);
+  border-radius: inherit;
   opacity: 0;
   pointer-events: none;
 }
 @container scroll-state(stuck: top) {
-  .group-label::before { opacity: 1; }
+  .group-label::before {
+    opacity: 1;
+    background: var(--chip-glass-layers), var(--sticky-head-fill);
+    -webkit-backdrop-filter: var(--sticky-head-backdrop);
+    backdrop-filter: var(--sticky-head-backdrop);
+    box-shadow: var(--chip-glass-insets), var(--chip-glass-shadow);
+  }
 }
 
 .item,
@@ -1250,7 +1303,9 @@ kbd {
 @media (forced-colors: active) {
   .chip, .item { border-color: CanvasText; -webkit-backdrop-filter: none; backdrop-filter: none; }
   .edge-fade { display: none; }
-  .group-label::before { background: Canvas; }
+  .group-label::before { background: Canvas; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; }
+  .group-label, .chip, .item-text, .empty, .folder-empty { text-shadow: none; }
+  .group-label .count, .item-sub, .chip-close { color: GrayText; }
   .chip::before, .chip::after, .item::before, .item::after { display: none; }
   .chip:focus-visible,
   .chip-open:has(> .chip-main:focus-visible),
