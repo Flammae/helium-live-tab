@@ -101,8 +101,6 @@ const ui = {
   crumbs: $('#crumbs'),
   body: $('#body'),
   foot: $('#foot'),
-  filter: $('#filter'),
-  q: $('#q'),
   manage: $('#manage'),
 };
 
@@ -112,7 +110,6 @@ const state = {
   tree: null,
   byId: new Map(),
   folderId: localStorage.getItem('livetab.folder'),
-  query: '',
   importing: false,
 };
 
@@ -172,21 +169,18 @@ function currentFolder() {
   return f;
 }
 
-function go(folderId, { focus = true } = {}) {
+function go(folderId) {
   const prev = state.folderId;
   state.folderId = folderId;
   localStorage.setItem('livetab.folder', folderId);
-  if (state.query) clearFilter(false);
   render({ animate: prev !== folderId ? 'enter' : null });
-  if (focus) requestAnimationFrame(() => focusFirstItem());
 }
 
 function goUp() {
   const f = currentFolder();
   if (f && f.depth > 1) {
-    const child = f.id;
-    go(f.parent.id, { focus: false });
-    requestAnimationFrame(() => (ui.body.querySelector(`[data-id="${child}"]`) || ui.body.querySelector('.item'))?.focus());
+    rover.key = `bm:${f.id}`;
+    go(f.parent.id);
     return true;
   }
   return false;
@@ -197,13 +191,14 @@ function render({ animate = null } = {}) {
   const roots = visibleRoots();
   const empty = roots.length === 0;
   ui.panel.classList.toggle('is-empty', empty);
-  ui.filter.hidden = empty;
+  const hadFocus = ui.body.contains(document.activeElement);
   ui.foot.hidden = empty;
   if (empty) {
     ui.roots.replaceChildren(h('div', { class: 'roots-title' }, 'Bookmarks'));
     ui.crumbs.replaceChildren();
     ui.crumbs.hidden = true;
     ui.body.replaceChildren(renderEmptyState());
+    refreshLane({ restore: hadFocus });
     return;
   }
 
@@ -212,12 +207,13 @@ function render({ animate = null } = {}) {
   renderRoots(roots, root);
   renderCrumbs(folder);
 
-  const content = state.query ? renderResults(state.query) : renderFolder(folder);
+  const content = renderFolder(folder);
   ui.body.replaceChildren(content);
   if (animate) {
     content.classList.add(animate);
     if (ui.scroll) ui.scroll.scrollTop = 0; else ui.body.scrollTop = 0;
   }
+  refreshLane({ restore: hadFocus, fallback: ui.body });
   updateScrollShadows();
 }
 
@@ -227,7 +223,7 @@ function renderRoots(roots, active) {
       class: 'root-tab',
       type: 'button',
       role: 'tab',
-      'aria-selected': String(r === active && !state.query),
+      'aria-selected': String(r === active),
       dataset: { id: r.id },
       onclick: () => go(r.id),
     }, h('span', { class: 'root-name' }, rootLabel(r)), h('span', { class: 'count' }, r.links)),
@@ -237,7 +233,7 @@ function renderRoots(roots, active) {
 
 function renderCrumbs(folder) {
   const path = pathOf(folder);
-  if (state.query || path.length < 2) {
+  if (path.length < 2) {
     ui.crumbs.hidden = true;
     ui.crumbs.replaceChildren();
     return;
@@ -283,7 +279,7 @@ function folderCard(n) {
   return h('button', {
     class: 'item folder-card',
     type: 'button',
-    dataset: { id: n.id },
+    dataset: { id: n.id, key: `bm:${n.id}` },
     title: n.title,
     onclick: () => go(n.id),
   },
@@ -298,21 +294,21 @@ function folderCard(n) {
 const NAVIGABLE = /^(https?|ftp):/i;
 const BROWSER_INTERNAL = /^(chrome|edge|brave|helium|about|file|view-source|chrome-extension):/i;
 
-function linkRow(n, { sub, highlight } = {}) {
+function linkRow(n) {
   const title = n.title || hostOf(n.url);
   const isBookmarklet = /^javascript:/i.test(n.url);
   const a = h('a', {
     class: 'item link' + (isBookmarklet ? ' is-disabled' : ''),
     href: isBookmarklet ? undefined : n.url,
     tabindex: isBookmarklet ? '-1' : undefined,
-    dataset: { id: n.id },
+    dataset: { id: n.id, key: `bm:${n.id}` },
     title: isBookmarklet ? `${title}\nBookmarklets can't run from the new tab page` : `${title}\n${n.url}`,
     draggable: 'true',
   },
   h('span', { class: 'fav-wrap' }, favicon(n.url)),
   h('span', { class: 'item-text' },
-    h('span', { class: 'item-title' }, highlight ? highlight(title) : title),
-    h('span', { class: 'item-sub' }, sub ?? hostOf(n.url))),
+    h('span', { class: 'item-title' }, title),
+    h('span', { class: 'item-sub' }, hostOf(n.url))),
   );
   if (!NAVIGABLE.test(n.url) && BROWSER_INTERNAL.test(n.url)) {
     // Extension pages can't link-navigate to browser-internal URLs; hand them to the tabs API.
@@ -352,63 +348,6 @@ function renderFolder(folder) {
   return wrap;
 }
 
-function allLinks(node, out = []) {
-  for (const c of node.children || []) {
-    if (c.url) out.push(c);
-    else allLinks(c, out);
-  }
-  return out;
-}
-
-function makeHighlighter(terms) {
-  const re = new RegExp(`(${terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi');
-  return (text) => {
-    const frag = document.createDocumentFragment();
-    let last = 0;
-    text.replace(re, (m, _g, i) => {
-      if (i > last) frag.append(text.slice(last, i));
-      frag.append(h('mark', {}, m));
-      last = i + m.length;
-      return m;
-    });
-    if (last < text.length) frag.append(text.slice(last));
-    return frag;
-  };
-}
-
-function renderResults(query) {
-  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
-  const scored = [];
-  for (const n of allLinks(state.tree)) {
-    const title = (n.title || '').toLowerCase();
-    const url = n.url.toLowerCase();
-    const folderPath = pathOf(n.parent).map(nodeTitle).join(' ').toLowerCase();
-    if (!terms.every((t) => title.includes(t) || url.includes(t) || folderPath.includes(t))) continue;
-    let score = 0;
-    for (const t of terms) {
-      if (title.startsWith(t)) score += 4;
-      else if (title.includes(t)) score += 2;
-      if (hostOf(n.url).toLowerCase().startsWith(t)) score += 3;
-    }
-    scored.push([score, n]);
-  }
-  scored.sort((a, b) => b[0] - a[0]);
-  const wrap = h('div', { class: 'view' });
-  if (!scored.length) {
-    wrap.append(h('div', { class: 'folder-empty' },
-      h('p', { class: 'folder-empty-title' }, `No bookmarks match “${query}”`),
-      h('p', { class: 'folder-empty-sub' }, 'Try a site name, a word from the title, or a folder name.')));
-    return wrap;
-  }
-  const hl = makeHighlighter(terms);
-  const rows = scored.slice(0, 200).map(([, n]) => {
-    const where = pathOf(n.parent).map(nodeTitle).join(' › ');
-    return linkRow(n, { sub: `${hostOf(n.url)}  ·  ${where}`, highlight: hl });
-  });
-  wrap.append(section('Results', scored.length, h('div', { class: 'grid links' }, rows)));
-  return wrap;
-}
-
 function openInternal(url) {
   chrome.tabs.update({ url });
 }
@@ -426,64 +365,65 @@ function renderEmptyState() {
   );
 }
 
-/* ───────────────────────── Filter ───────────────────────── */
-
-function setFilter(value) {
-  state.query = value.trim();
-  ui.filter.classList.toggle('active', !!value || document.activeElement === ui.q);
-  render({ animate: null });
-}
-
-function clearFilter(rerender = true) {
-  ui.q.value = '';
-  state.query = '';
-  ui.filter.classList.remove('active');
-  if (rerender) render();
-}
-
-ui.q.addEventListener('input', () => setFilter(ui.q.value));
-ui.q.addEventListener('focus', () => {
-  ui.filter.classList.add('active');
-  ui.q.placeholder = 'Filter by title, site or folder';
-});
-ui.q.addEventListener('blur', () => {
-  if (!ui.q.value) ui.filter.classList.remove('active');
-  ui.q.placeholder = 'Filter';
-});
-ui.q.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
-    e.preventDefault();
-    clearFilter();
-    ui.q.blur();
-  } else if (e.key === 'ArrowDown' || e.key === 'Enter') {
-    const first = ui.body.querySelector('.item:not(.is-disabled)');
-    if (!first) return;
-    e.preventDefault();
-    if (e.key === 'Enter') first.click();
-    else first.focus();
-  }
-});
 ui.manage.addEventListener('click', () => openInternal('chrome://bookmarks/'));
 
 /* ───────────────────────── Keyboard navigation ───────────────────────── */
 
-const items = () => [...ui.body.querySelectorAll('.item:not(.is-disabled)')];
+// One roving lane across the panel: open tabs → recently closed → bookmarks. Exactly one lane
+// element has tabindex=0; arrows move between the rest. Infinite-scroll clones are never in it.
+const LANE = '.open-tabs-list .chip-main, .recent-list .chip:not(.is-clone), #body .item:not(.is-disabled)';
+const rover = { key: null, bySection: new Map() };
+// Focus is only ever moved programmatically while the user is driving the panel with the keyboard,
+// so a new tab never pulls focus away from the address bar (or anything else).
+const kbd = { active: false };
 
-function focusFirstItem() {
-  items()[0]?.focus({ preventScroll: false });
+const laneKey = (el) => el.dataset.key;
+const lane = () => [...document.querySelectorAll(LANE)].filter((el) => el.getClientRects().length);
+const sections = () => [$('#openTabs'), $('#recent'), ui.body];
+const sectionOf = (el) => sections().find((s) => s.contains(el));
+const byKey = (key, list = lane()) => (key ? list.find((el) => laneKey(el) === key) : null);
+
+function focusEl(el) {
+  if (!el) return;
+  el.focus({ preventScroll: true });
+  el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: reduceMQ.matches ? 'auto' : 'smooth' });
 }
 
+function setRover(el) {
+  for (const other of document.querySelectorAll('[data-key][tabindex="0"]')) if (other !== el) other.tabIndex = -1;
+  el.tabIndex = 0;
+  rover.key = laneKey(el);
+  const sec = sectionOf(el);
+  if (sec) rover.bySection.set(sec, rover.key);
+}
+
+/** Re-apply tabindexes after a re-render; put focus back only if it was already in the lane. */
+function refreshLane({ restore = false, fallback = null } = {}) {
+  const list = lane();
+  for (const el of list) el.tabIndex = -1;
+  if (!list.length) return;
+  const target = byKey(rover.key, list)
+    || (fallback && list.find((el) => fallback.contains(el)))
+    || list[0];
+  target.tabIndex = 0;
+  if (restore && kbd.active) focusEl(target);
+}
+
+ui.panel.addEventListener('focusin', (e) => {
+  if (e.target.matches?.(LANE)) setRover(e.target);
+});
+
 function moveFocus(dir) {
-  const list = items();
+  const list = lane();
   if (!list.length) return;
   const cur = document.activeElement;
   const idx = list.indexOf(cur);
-  if (idx === -1) { list[0].focus(); return; }
+  if (idx === -1) { focusEl(byKey(rover.key, list) || list[0]); return; }
   if (dir === 'left' || dir === 'right') {
-    const next = list[idx + (dir === 'right' ? 1 : -1)];
-    next?.focus();
+    focusEl(list[idx + (dir === 'right' ? 1 : -1)]);
     return;
   }
+  // Up/down is geometric so wrapped chip rows, the 2-row masonry and the tile grid all feel natural.
   const r = cur.getBoundingClientRect();
   const cx = r.left + r.width / 2;
   const down = dir === 'down';
@@ -497,47 +437,80 @@ function moveFocus(dir) {
     const score = dy * 4 + Math.abs(b.left + b.width / 2 - cx);
     if (score < bestScore) { bestScore = score; best = el; }
   }
-  if (best) best.focus();
-  else if (!down && ui.filter.offsetParent) ui.roots.querySelector('[aria-selected="true"]')?.focus();
+  focusEl(best);
 }
 
+function focusEdge(end, wholePanel) {
+  const list = lane();
+  const cur = document.activeElement;
+  const sec = wholePanel || !list.includes(cur) ? null : sectionOf(cur);
+  const scoped = sec ? list.filter((el) => sec.contains(el)) : list;
+  focusEl(end ? scoped[scoped.length - 1] : scoped[0]);
+}
+
+function jumpSection(step) {
+  const list = lane();
+  const live = sections().filter((s) => list.some((el) => s.contains(el)));
+  if (!live.length) return;
+  const cur = list.includes(document.activeElement) ? live.indexOf(sectionOf(document.activeElement)) : -1;
+  const next = live[cur === -1 ? (step > 0 ? 0 : live.length - 1) : (cur + step + live.length) % live.length];
+  focusEl(byKey(rover.bySection.get(next), list) || list.find((el) => next.contains(el)));
+}
+
+function closeFocusedTab(main) {
+  const list = lane();
+  const idx = list.indexOf(main);
+  const sec = sectionOf(main);
+  const neighbor = [list[idx + 1], list[idx - 1]].find((el) => el && sectionOf(el) === sec) || list[idx + 1] || list[idx - 1];
+  const chip = main.closest('.chip-open');
+  if (neighbor) focusEl(neighbor);
+  chip?.remove();
+  if (!openTabs.list.childElementCount) openTabs.el.hidden = true;
+  chrome.tabs.remove(Number(main.dataset.tabId)).catch(() => {});
+}
+
+addEventListener('pointerdown', () => { kbd.active = false; }, true);
+
 document.addEventListener('keydown', (e) => {
-  const inInput = e.target === ui.q;
-  if (inInput) return;
+  if (e.isComposing) return;
   const mod = e.metaKey || e.ctrlKey || e.altKey;
+  const inPanel = e.target === document.body || ui.panel.contains(e.target);
+  if (!inPanel) return;
+  kbd.active = true;
+  const onLane = e.target.matches?.(LANE);
 
-  if (e.key === '/' && !mod && !ui.filter.hidden) {
+  if ((e.key === '/' || e.key === '?') && !mod) {
     e.preventDefault();
-    ui.q.focus();
+    jumpSection(e.key === '?' ? -1 : 1);
     return;
   }
-  if (e.key === 'Escape' && state.query) { clearFilter(); return; }
-
-  const onTab = e.target.closest?.('.root-tab');
-  if (onTab && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
-    e.preventDefault();
-    const tabs = [...ui.roots.querySelectorAll('.root-tab')];
-    const next = tabs[(tabs.indexOf(onTab) + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
-    next.focus();
-    next.click();
-    next.focus();
-    return;
-  }
-  if (onTab && e.key === 'ArrowDown') { e.preventDefault(); focusFirstItem(); return; }
 
   const arrows = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
-  if (arrows[e.key] && !mod && (ui.body.contains(e.target) || e.target === document.body)) {
+  if (arrows[e.key] && !mod) {
     e.preventDefault();
     moveFocus(arrows[e.key]);
     return;
   }
-  if ((e.key === 'Backspace' && !mod) || (e.key === 'ArrowLeft' && e.altKey) || (e.key === '[' && (e.metaKey || e.ctrlKey))) {
-    if (goUp()) e.preventDefault();
+  if ((e.key === 'Home' || e.key === 'End') && !e.altKey) {
+    e.preventDefault();
+    focusEdge(e.key === 'End', e.metaKey || e.ctrlKey);
     return;
   }
-  // Type-to-filter: any printable key starts filtering.
-  if (e.key.length === 1 && !mod && e.key !== ' ' && !ui.filter.hidden && !e.target.closest?.('.recent')) {
-    ui.q.focus();
+
+  if ((e.key === 'Delete' || e.key === 'Backspace') && !mod && onLane) {
+    if (e.target.classList.contains('chip-main')) {
+      e.preventDefault();
+      closeFocusedTab(e.target);
+      return;
+    }
+    if (e.target.closest('.recent-list')) {
+      e.preventDefault();
+      return;
+    }
+  }
+
+  if ((e.key === 'Backspace' && !mod) || (e.key === 'ArrowLeft' && e.altKey) || (e.key === '[' && (e.metaKey || e.ctrlKey))) {
+    if (goUp()) e.preventDefault();
   }
 });
 
@@ -590,8 +563,8 @@ function makeOpenTabChip(t) {
   const isNtp = !url || SKIP_URL(url);
   const title = t.title || (isNtp ? 'New Tab' : hostOf(url)) || 'Tab';
   const tip = isNtp
-    ? `${title}\nClick to switch · × to close`
-    : `${title}\n${url}\nClick to switch · × to close`;
+    ? `${title}\nClick to switch · × or Delete to close`
+    : `${title}\n${url}\nClick to switch · × or Delete to close`;
   return h('div', {
     class: 'chip chip-open',
     role: 'listitem',
@@ -600,12 +573,16 @@ function makeOpenTabChip(t) {
   h('button', {
     class: 'chip-main',
     type: 'button',
+    dataset: { key: `tab:${t.id}`, tabId: t.id },
+    'aria-keyshortcuts': 'Delete',
     onclick: () => goToTab(t.id),
   }, favicon(url || 'chrome://newtab/', 'chip-fav'), h('span', { class: 'chip-text' }, title)),
   h('button', {
     class: 'chip-close',
     type: 'button',
+    tabindex: '-1',
     title: 'Close tab',
+    onmousedown: (e) => e.preventDefault(),
     'aria-label': `Close ${title}`,
     onclick: (e) => {
       e.preventDefault();
@@ -624,6 +601,7 @@ function makeRecentChip(s) {
       class: 'chip',
       type: 'button',
       role: 'listitem',
+      dataset: { key: `recent:${t.sessionId}` },
       title: `${title}\n${t.url}\nClosed ${timeAgo(s.lastModified)} — click to restore`,
       onclick: () => restore(t.sessionId, true),
     }, favicon(t.url, 'chip-fav'), h('span', { class: 'chip-text' }, title));
@@ -635,6 +613,7 @@ function makeRecentChip(s) {
       class: 'chip chip-window',
       type: 'button',
       role: 'listitem',
+      dataset: { key: `recent:${s.window.sessionId}` },
       title: `Window with ${tabs.length} tabs\n${tabs.slice(0, 6).map((t) => '• ' + (t.title || hostOf(t.url))).join('\n')}\nClosed ${timeAgo(s.lastModified)} — click to restore`,
       onclick: () => restore(s.window.sessionId, false),
     },
@@ -646,6 +625,9 @@ function makeRecentChip(s) {
 
 function cloneChip(orig) {
   const clone = orig.cloneNode(true);
+  clone.classList.add('is-clone');
+  clone.tabIndex = -1;
+  clone.setAttribute('aria-hidden', 'true');
   clone.addEventListener('click', (e) => {
     e.preventDefault();
     orig.click();
@@ -733,8 +715,10 @@ async function loadOpenTabs() {
     const chip = makeOpenTabChip(t);
     if (chip) chips.push(chip);
   }
+  const hadFocus = openTabs.list.contains(document.activeElement);
   openTabs.el.hidden = chips.length === 0;
   openTabs.list.replaceChildren(...chips);
+  refreshLane({ restore: hadFocus, fallback: openTabs.el });
 }
 
 async function loadRecent() {
@@ -747,12 +731,15 @@ async function loadRecent() {
     const chip = makeRecentChip(s);
     if (chip) chips.push(chip);
   }
+  const hadFocus = recent.list.contains(document.activeElement);
   recent.el.hidden = chips.length === 0;
   if (!chips.length) {
     recent.list.replaceChildren();
+    refreshLane({ restore: hadFocus });
     return;
   }
   layoutChipMasonry(recent.list, chips);
+  refreshLane({ restore: hadFocus, fallback: recent.el });
 }
 
 const reloadOpenTabs = debounce(loadOpenTabs, 120);

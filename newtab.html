@@ -23,21 +23,18 @@
       <section class="panel is-booting" id="panel" aria-label="Bookmarks" aria-busy="true">
         <div class="chrome-stub" hidden>
           <div class="roots" id="roots" role="tablist" aria-label="Bookmark locations"></div>
-          <label class="filter" id="filter">
-            <input id="q" type="search" autocomplete="off" spellcheck="false" aria-label="Filter bookmarks">
-          </label>
           <button class="icon-btn" id="manage" type="button" aria-label="Open bookmark manager"></button>
           <nav class="crumbs" id="crumbs" aria-label="Folder path"></nav>
           <footer class="panel-foot" id="foot"></footer>
         </div>
-        <div class="panel-scroll" id="panelScroll">
+        <div class="panel-scroll" id="panelScroll" tabindex="-1">
           <section class="chip-section group" id="openTabs" aria-label="Open tabs" hidden>
             <h3 class="group-label">Open tabs</h3>
             <div class="open-tabs-list" id="openTabsList" role="list"></div>
           </section>
           <section class="chip-section group" id="recent" aria-label="Recently closed" hidden>
             <h3 class="group-label">Recently closed</h3>
-            <div class="recent-list" id="recentList" role="list"></div>
+            <div class="recent-list" id="recentList" role="list" tabindex="-1"></div>
           </section>
           <div class="panel-body" id="body"></div>
         </div>

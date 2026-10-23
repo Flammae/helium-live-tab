@@ -20,7 +20,6 @@
   --edge-a: hsl(300 100% 82% / .42);
   --edge-b: hsl(190 100% 80% / .16);
   --edge-c: hsl(268 100% 76% / .32);
-  --mark: hsl(272 100% 70% / .38);
   --shadow: 0 40px 100px -30px hsl(272 90% 1% / .9), 0 12px 32px -12px hsl(272 80% 2% / .7);
   --scrim: radial-gradient(120% 90% at 50% 45%, hsl(272 70% 2% / .18) 0%, hsl(272 70% 2% / .05) 55%, hsl(272 70% 2% / .45) 100%);
   --ring: hsl(274 100% 74%);
@@ -52,7 +51,6 @@
     --edge-a: hsl(0 0% 100% / .95);
     --edge-b: hsl(190 80% 92% / .5);
     --edge-c: hsl(300 80% 96% / .8);
-    --mark: hsl(286 60% 70% / .4);
     --shadow: 0 40px 90px -36px hsl(286 40% 30% / .45), 0 10px 30px -14px hsl(286 40% 30% / .25);
     --scrim: radial-gradient(120% 90% at 50% 45%, hsl(286 50% 92% / .2) 0%, hsl(286 50% 92% / .05) 55%, hsl(286 50% 88% / .35) 100%);
     --ring: hsl(286 45% 46%);
@@ -191,7 +189,7 @@ kbd {
 
 .panel {
   width: min(1080px, 100%);
-  /* Grow/shrink with the slot (window height); cap at the old max. Content filter does not change this. */
+  /* Grow/shrink with the slot (window height); cap at the old max. */
   flex: 1 1 auto;
   max-height: 760px;
   min-height: 0;
@@ -282,44 +280,6 @@ kbd {
   align-items: center;
   gap: 6px;
 }
-
-.filter {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 34px;
-  width: 128px;
-  padding: 0 8px 0 11px;
-  border-radius: 999px;
-  border: 1px solid var(--stroke);
-  background: var(--tile);
-  color: var(--ink-3);
-  cursor: text;
-  transition: width .32s var(--ease), border-color .2s, background .2s;
-}
-.filter[hidden] { display: none; }
-.filter:hover { border-color: var(--stroke-2); }
-.filter.active {
-  width: 280px;
-  border-color: var(--accent);
-  background: var(--tile-hover);
-  box-shadow: 0 0 0 4px var(--accent-soft);
-  color: var(--ink-2);
-}
-.filter svg { flex: none; width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
-.filter input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--ink);
-  font: inherit;
-}
-.filter input::placeholder { color: var(--ink-3); }
-.filter input::-webkit-search-cancel-button { display: none; }
-.filter kbd { height: 20px; min-width: 20px; font-size: 11px; transition: opacity .2s; }
-.filter.active kbd { opacity: 0; width: 0; min-width: 0; padding: 0; margin: 0; border: 0; }
 
 .icon-btn {
   display: grid;
@@ -494,12 +454,6 @@ kbd {
   text-overflow: ellipsis;
   color: var(--ink-3);
   font-size: 11.5px;
-}
-mark {
-  background: var(--mark);
-  color: inherit;
-  border-radius: 3px;
-  padding: 0 1px;
 }
 
 .folder-card { padding-right: 10px; }
@@ -703,7 +657,6 @@ mark {
   .panel-head { flex-wrap: wrap; padding: 12px 10px 8px; }
   .roots { order: 2; flex-basis: 100%; }
   .head-actions { order: 1; width: 100%; }
-  .filter, .filter.active { flex: 1; width: auto; }
   .panel-body { padding: 4px 10px 12px; }
   .grid.folders, .grid.links { grid-template-columns: 1fr; }
   .panel-foot { display: none; }
@@ -855,7 +808,6 @@ mark {
 .panel-head,
 .crumbs,
 .panel-foot,
-.filter,
 .icon-btn#manage,
 .roots { display: none !important; }
 
@@ -1171,6 +1123,33 @@ mark {
 }
 .recent-row + .recent-row .chip { --lt-row-top: 38px; }
 
+/* Keyboard focus. The edge-fade mask clips everything outside the border box, so the ring sits inside it. */
+:root {
+  --focus-ring: hsl(0 0% 100%);
+  --focus-halo: hsl(0 0% 0% / .5);
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --focus-ring: hsl(0 0% 8%);
+    --focus-halo: hsl(0 0% 100% / .75);
+  }
+}
+.chip:focus-visible,
+.chip-open:has(> .chip-main:focus-visible),
+.item:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+  background: linear-gradient(to bottom, var(--chip-glass-sheen), transparent 60%), var(--chip-glass-fill-hover);
+  box-shadow: inset 0 0 0 3.5px var(--focus-halo), inset 0 1px 0 var(--chip-glass-rim-top), var(--chip-glass-shadow-hover);
+}
+.open-tabs-list .chip-main:focus-visible { outline: none; }
+.chip:focus-visible::before,
+.chip-open:has(> .chip-main:focus-visible)::before { opacity: 1; }
+
+.item,
+.open-tabs-list .chip-main { scroll-margin: 8px 8px 56px; }
+.recent-list .chip { scroll-margin: 8px 36px 56px 8px; }
+
 @media (prefers-reduced-motion: reduce) {
   .chip:hover, .item:hover, .item:active { transform: none; }
 }
@@ -1194,4 +1173,7 @@ mark {
 @media (forced-colors: active) {
   .chip, .item { border-color: CanvasText; -webkit-backdrop-filter: none; backdrop-filter: none; }
   .chip::before, .chip::after, .item::before, .item::after { display: none; }
+  .chip:focus-visible,
+  .chip-open:has(> .chip-main:focus-visible),
+  .item:focus-visible { outline: 2px solid Highlight; outline-offset: -2px; box-shadow: none; }
 }
