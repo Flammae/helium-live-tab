@@ -1041,7 +1041,48 @@ kbd {
   backdrop-filter: none;
 }
 
-/* Specular hairline: bright top-left, catching light again bottom-right. */
+/*
+ * Liquid detail. Everything here is painted (gradients, inset shadows), never filtered, so it is
+ * rasterized once with the scroll content and costs nothing per scroll frame.
+ */
+:root {
+  --chip-glass-caustic: hsl(0 0% 100% / .08);
+  --chip-glass-edge-light: hsl(0 0% 100% / .2);
+  --chip-glass-disperse-a: hsl(320 100% 82% / .34);
+  --chip-glass-disperse-b: hsl(190 100% 78% / .32);
+  --tile-glass-frost: hsl(0 0% 100% / .06);
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --chip-glass-caustic: hsl(0 0% 100% / .5);
+    --chip-glass-edge-light: hsl(0 0% 100% / .65);
+    --chip-glass-disperse-a: hsl(320 100% 86% / .6);
+    --chip-glass-disperse-b: hsl(190 100% 82% / .6);
+    --tile-glass-frost: hsl(0 0% 100% / .22);
+  }
+}
+:root {
+  --chip-glass-layers:
+    radial-gradient(140% 120% at 0% 0%, var(--chip-glass-lens), transparent 48%),
+    radial-gradient(90% 70% at 85% 135%, var(--chip-glass-caustic), transparent 62%),
+    linear-gradient(to bottom, var(--chip-glass-sheen), transparent 58%);
+  --chip-glass-insets:
+    inset 0 1px 0 var(--chip-glass-rim-top),
+    inset 0 -1px 0 var(--chip-glass-rim-bottom),
+    inset 0 0 12px -5px var(--chip-glass-edge-light),
+    inset -8px -10px 16px -12px var(--chip-glass-depth);
+}
+/* Tiles don't sample the wallpaper, so a soft top-down frost stands in for the blur. */
+.item {
+  --chip-glass-layers:
+    radial-gradient(140% 120% at 0% 0%, var(--chip-glass-lens), transparent 48%),
+    radial-gradient(90% 70% at 85% 135%, var(--chip-glass-caustic), transparent 62%),
+    linear-gradient(to bottom, var(--chip-glass-sheen), transparent 58%),
+    linear-gradient(170deg, var(--tile-glass-frost), transparent 70%);
+}
+
+/* Specular hairline: bright top-left, catching light again bottom-right; a faint pink/cyan split
+   around the rim reads as refraction at the glass edge. */
 .chip::after,
 .item::after {
   content: "";
@@ -1049,7 +1090,9 @@ kbd {
   inset: -1px;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(135deg, var(--chip-glass-edge-hi), var(--chip-glass-edge-lo) 30%, transparent 50%, transparent 66%, var(--chip-glass-edge-lo) 84%, var(--chip-glass-edge-catch));
+  background:
+    linear-gradient(135deg, var(--chip-glass-edge-hi), var(--chip-glass-edge-lo) 30%, transparent 50%, transparent 66%, var(--chip-glass-edge-lo) 84%, var(--chip-glass-edge-catch)),
+    conic-gradient(from 200deg, transparent, var(--chip-glass-disperse-a) 40deg, transparent 90deg, transparent 180deg, var(--chip-glass-disperse-b) 230deg, transparent 280deg);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
