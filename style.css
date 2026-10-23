@@ -37,7 +37,7 @@
   --type-heading-track: -.016em;
   --type-title: 590 13.5px/18px var(--font);
   --type-title-track: -.01em;
-  --type-label: 510 13px/16px var(--font);
+  --type-label: 460 13px/16px var(--font);
   --type-label-track: -.006em;
   --type-meta: 450 11.5px/15px var(--font);
   --type-meta-track: 0em;
@@ -666,7 +666,7 @@ kbd {
   border-radius: 10px;
   border: 1px solid var(--stroke);
   background: var(--tile);
-  color: var(--ink-2);
+  color: var(--ink-chip);
   font: var(--type-label);
   letter-spacing: var(--type-label-track);
   text-shadow: var(--type-halo);
@@ -792,6 +792,8 @@ kbd {
   --ink: hsl(0 0% 98%);
   --ink-2: hsl(0 0% 94% / .82);
   --ink-3: hsl(0 0% 92% / .66);
+  /* Chip labels at rest. Hover/focus step up to --ink by colour only, so chip widths (and the masonry rows) never shift. */
+  --ink-chip: hsl(0 0% 94% / .74);
   /* Tight contact shadow: separates glyph edges from moving video without looking embossed. */
   --type-halo: 0 .5px 1.5px hsl(0 0% 0% / .32);
   --type-halo-heading: 0 1px 2px hsl(0 0% 0% / .28), 0 0 14px hsl(0 0% 0% / .22);
@@ -814,6 +816,7 @@ kbd {
     --ink: hsl(0 0% 9%);
     --ink-2: hsl(0 0% 12% / .78);
     --ink-3: hsl(0 0% 14% / .6);
+    --ink-chip: hsl(0 0% 12% / .7);
     --type-halo: 0 .5px 1px hsl(0 0% 100% / .5);
     --type-halo-heading: 0 0 1px hsl(0 0% 100% / .6), 0 0 14px hsl(0 0% 100% / .5);
     --shadow: 0 40px 90px -36px hsl(0 0% 20% / .4), 0 10px 30px -14px hsl(0 0% 20% / .22);
@@ -1205,6 +1208,7 @@ kbd {
 .chip:focus-visible,
 .chip-open:has(> .chip-main:focus-visible),
 .item:focus-visible {
+  color: var(--ink);
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
   background: var(--chip-glass-layers), var(--chip-glass-fill-hover);
