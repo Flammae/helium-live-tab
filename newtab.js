@@ -533,6 +533,7 @@ function closeFocusedTab(main) {
   chip?.remove();
   if (!openTabs.list.childElementCount) openTabs.el.hidden = true;
   chrome.tabs.remove(Number(main.dataset.tabId)).catch(() => {});
+  fitPanel();
 }
 
 addEventListener('pointerdown', () => { kbd.active = false; }, true);
@@ -623,6 +624,13 @@ async function goToTab(tabId) {
   if (current?.id != null && current.id !== tabId) chrome.tabs.remove(current.id).catch(() => {});
 }
 
+function closeOpenTabChip(chip, tabId) {
+  chip?.remove();
+  if (!openTabs.list.childElementCount) openTabs.el.hidden = true;
+  chrome.tabs.remove(tabId).catch(() => {});
+  fitPanel();
+}
+
 function makeOpenTabChip(t) {
   if (t.id == null) return null;
   const url = t.url || t.pendingUrl || '';
@@ -631,7 +639,7 @@ function makeOpenTabChip(t) {
   const tip = isNtp
     ? `${title}\nClick to switch · × or Delete to close`
     : `${title}\n${url}\nClick to switch · × or Delete to close`;
-  return h('div', {
+  const chip = h('div', {
     class: 'chip chip-open',
     role: 'listitem',
     title: tip,
@@ -643,6 +651,8 @@ function makeOpenTabChip(t) {
     'aria-keyshortcuts': 'Delete',
     onclick: () => goToTab(t.id),
   }, favicon(url || 'chrome://newtab/', 'chip-fav'), h('span', { class: 'chip-text' }, title)),
+  // Sits over the favicon: on hover the favicon gives way to ×, so a row of tabs can be closed
+  // with repeated clicks without moving the pointer (the next chip slides into the same spot).
   h('button', {
     class: 'chip-close',
     type: 'button',
@@ -653,9 +663,10 @@ function makeOpenTabChip(t) {
     onclick: (e) => {
       e.preventDefault();
       e.stopPropagation();
-      chrome.tabs.remove(t.id).catch(() => {});
+      closeOpenTabChip(chip, t.id);
     },
   }, '×'));
+  return chip;
 }
 
 function makeRecentChip(s) {
@@ -753,6 +764,7 @@ async function loadOpenTabs() {
   openTabs.el.hidden = chips.length === 0;
   openTabs.list.replaceChildren(...chips);
   refreshLane({ restore: hadFocus, fallback: openTabs.el });
+  fitPanel();
 }
 
 async function loadRecent() {
@@ -770,10 +782,12 @@ async function loadRecent() {
   if (!chips.length) {
     recent.list.replaceChildren();
     refreshLane({ restore: hadFocus });
+    fitPanel();
     return;
   }
   layoutChipMasonry(recent.list, chips);
   refreshLane({ restore: hadFocus, fallback: recent.el });
+  fitPanel();
 }
 
 const reloadOpenTabs = debounce(loadOpenTabs, 120);
@@ -784,6 +798,48 @@ chrome.tabs?.onUpdated?.addListener(reloadOpenTabs);
 chrome.tabs?.onMoved?.addListener(reloadOpenTabs);
 chrome.tabs?.onAttached?.addListener(reloadOpenTabs);
 chrome.tabs?.onDetached?.addListener(reloadOpenTabs);
+
+
+/* ───────────────────────── Panel height fit ───────────────────────── */
+
+const FIT_ROWS = 6;
+const REF_H = 696; // the old fixed panel height, used only to anchor the top edge
+const FIT_PAD = 3; // a hair under the last row so its edge isn't clipped; the next row starts further down
+
+/** Height the panel needs to show Open tabs + Recently closed + the bookmarks heading and FIT_ROWS
+ *  whole tile rows, so the bottom edge always falls between rows. When the window is too short for
+ *  that, it snaps to the last whole row that fits instead of cutting a tile. */
+function fitPanel() {
+  const sc = ui.scroll;
+  if (!sc || boot.pending && !ui.body.childElementCount) return;
+  const top = sc.getBoundingClientRect().top - sc.scrollTop;
+  const bottoms = [];
+  for (const el of ui.body.querySelectorAll('.item')) {
+    const b = Math.round(el.getBoundingClientRect().bottom - top);
+    if (!bottoms.includes(b)) bottoms.push(b);
+  }
+  bottoms.sort((a, b) => a - b);
+  const root = document.documentElement.style;
+  if (!bottoms.length) { root.removeProperty('--panel-h'); root.removeProperty('--panel-top'); return; }
+  const want = bottoms[Math.min(FIT_ROWS, bottoms.length) - 1] + FIT_PAD;
+  const slot = ui.panel.parentElement;
+  const cs = getComputedStyle(slot);
+  const room = slot.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  // Keep the top edge where the old fixed-height, centred panel put it, so chips don't jump under
+  // the pointer as the height changes; only slide up when a tall panel would run off the bottom.
+  const refTop = Math.max(0, (room - Math.min(REF_H, room)) / 2);
+  const top0 = Math.min(refTop, Math.max(0, room - want));
+  const avail = room - top0;
+  let h2 = want;
+  if (want > avail) {
+    const fits = bottoms.filter((b) => b + FIT_PAD <= avail);
+    h2 = fits.length ? fits[fits.length - 1] + FIT_PAD : avail;
+  }
+  root.setProperty('--panel-h', `${Math.max(120, Math.round(h2))}px`);
+  root.setProperty('--panel-top', `${Math.round(top0)}px`);
+  updateScrollShadows();
+}
+addEventListener('resize', debounce(fitPanel, 60));
 
 /* ───────────────────────── Boot ───────────────────────── */
 
@@ -801,6 +857,7 @@ async function start() {
   });
   await Promise.all([bookmarks, loadOpenTabs(), loadRecent()]);
   boot.pending = false;
+  fitPanel();
   ui.panel.removeAttribute('aria-busy');
   ui.panel.classList.remove('is-booting');
   // Force a reflow, then play rise once content is stable.

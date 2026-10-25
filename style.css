@@ -1336,3 +1336,50 @@ kbd {
   -webkit-mask: none !important;
   mask: none !important;
 }
+
+
+/* ───────── 2.7.1: panel height fits its content (JS sets --panel-h / --panel-top) ───────── */
+.bookmarks-slot { justify-content: flex-start; }
+.panel {
+  height: min(var(--panel-h, 696px), calc(100vh - 48px));
+  max-height: min(var(--panel-h, 696px), calc(100vh - 48px)) !important;
+  margin-top: var(--panel-top, 0px);
+}
+/* No bottom fade: a mask on the scroller forces every chip's backdrop blur to repaint on each scroll
+   frame. The panel ends right under the last whole tile row instead, so no next row peeks in. */
+.panel-scroll {
+  padding-bottom: 0;
+  -webkit-mask: none;
+  mask: none;
+}
+
+/* Open tabs: the × is a tile the size of the favicon, laid exactly over it, and it fades in by colour
+   alone (background and glyph colour), on the chip's own timing. No opacity or transform animation:
+   those get their own compositor layer inside the blurred chip, and that is what made hovering lag. The
+   tile is opaque enough to hide the favicon under it, so the favicon needs no animation either. */
+.open-tabs-list .chip-open { position: relative; }
+.open-tabs-list .chip-main { padding: 0 12px 0 8px; border-radius: 10px; }
+.open-tabs-list .chip-close {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0;
+  padding: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: transparent;
+  font: 500 15px/1 var(--font);
+  pointer-events: none;
+  transition: background-color .18s var(--ease), color .18s var(--ease);
+}
+/* Invisible, larger hit area so the pointer doesn't fall into a gap on the way to the tile. */
+.open-tabs-list .chip-close::before { content: ""; position: absolute; inset: -6px -4px; }
+.open-tabs-list .chip-open:hover > .chip-close,
+.open-tabs-list .chip-open:has(> .chip-main:focus-visible) > .chip-close {
+  background: var(--fav-bg);
+  color: hsl(0 0% 12%);
+  pointer-events: auto;
+}
+.open-tabs-list .chip-open:hover > .chip-close:hover { background: hsl(0 78% 62%); color: #fff; }
